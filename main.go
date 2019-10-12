@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"./NPYLM"
+	"./npylm"
 )
 
 func main() {
@@ -34,11 +34,11 @@ func main() {
 
 	runtime.GOMAXPROCS(*flagThreads)
 	fmt.Println("Building model")
-	npylm := NPYLM.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
+	model := npylm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
 	// npylm := NPYLM.NewPYHSMM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength, 10)
 	fmt.Println("Loading data and initialize model")
-	dataContainer := NPYLM.NewDataContainer(*flagRawFilePath)
-	npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
+	dataContainer := npylm.NewDataContainer(*flagRawFilePath)
+	model.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
 	// dataContainer := NPYLM.NewDataContainerFromAnnotatedData(*flagSegmentedFilePath)
 	// npylm.InitializeFromAnnotatedData(dataContainer.Sents, dataContainer.SamplingWordSeqs)
 	// npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs, dataContainer.SamplingPosSeqs)
@@ -71,9 +71,9 @@ func main() {
 	fmt.Println("Training model")
 	for epoch := 0; epoch < *flagEpoch; epoch++ {
 		// fmt.Println("prev", dataContainer.SamplingWordSeqs[0])
-		npylm.Train(dataContainer, *flagThreads, *flagBatch)
+		model.Train(dataContainer, *flagThreads, *flagBatch)
 		testSize := 50
-		wordSeqs := npylm.Test(dataContainer.Sents[:testSize], *flagThreads)
+		wordSeqs := model.Test(dataContainer.Sents[:testSize], *flagThreads)
 		for i := 0; i < testSize; i++ {
 			fmt.Println("test", wordSeqs[i])
 		}

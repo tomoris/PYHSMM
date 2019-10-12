@@ -1,11 +1,9 @@
-package NPYLM
+package npylm
 
 import (
 	"fmt"
-	_ "fmt"
 	"math"
 	"math/rand"
-	_ "strings"
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
@@ -13,8 +11,9 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-type forwardScoreType [][]newFloat
+type forwardScoreType [][]float64
 
+// NPYLM contains HPYLM instance as word-based n-gram parameters and VPYLM instance as character-based n-gram parameters.
 type NPYLM struct {
 	*HPYLM
 	// add
@@ -28,22 +27,23 @@ type NPYLM struct {
 	eow           string
 
 	poisson     distuv.Poisson
-	length2prob []newFloat
+	length2prob []float64
 
 	word2sampledDepthMemory map[string][][]int
 }
 
+// NewNPYLM returns NPYLM instance.
 func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int) *NPYLM {
 
 	charBase := float64(1.0 / 2097152.0) // 1 / 2^21 , size of character vocabulary in utf-8 encodeing
 	dummyBase := charBase
 	hpylm := NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, dummyBase)
 	vpylm := NewVPYLM(maxWordLength+2, initialTheta, initialD, gammaA, gammaB, betaA, betaB, charBase, alpha, beta)
-	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, "<BOS>", "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]newFloat, maxWordLength, maxWordLength), make(map[string][][]int)}
+	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, "<BOS>", "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]float64, maxWordLength, maxWordLength), make(map[string][][]int)}
 
 	npylm.poisson.Lambda = float64(maxWordLength) / 2.0
 	for k := 0; k < maxWordLength; k++ {
-		npylm.length2prob[k] = 1.0 / newFloat(maxWordLength)
+		npylm.length2prob[k] = 1.0 / float64(maxWordLength)
 	}
 
 	if npylm.maxNgram != 2 {
@@ -110,8 +110,8 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 	return
 }
 
-func (npylm *NPYLM) calcBase(word string) newFloat {
-	p := newFloat(1.0)
+func (npylm *NPYLM) calcBase(word string) float64 {
+	p := float64(1.0)
 	runeWord := []rune(word)
 	uChar := make(context, 0, len(runeWord)+1)
 	uChar = append(uChar, npylm.bow)
@@ -125,11 +125,11 @@ func (npylm *NPYLM) calcBase(word string) newFloat {
 	p *= pTmpMixed
 
 	// poisson correction
-	p *= newFloat(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
+	p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
 	return p
 }
 
-func (npylm *NPYLM) logsumexp(forwardScoreTmp []newFloat) newFloat {
+func (npylm *NPYLM) logsumexp(forwardScoreTmp []float64) float64 {
 	maxScore := math.Inf(-1)
 	for _, score := range forwardScoreTmp {
 		maxScore = math.Max(float64(score), maxScore)
@@ -139,25 +139,26 @@ func (npylm *NPYLM) logsumexp(forwardScoreTmp []newFloat) newFloat {
 	for _, score := range forwardScoreTmp {
 		logsumexpScoreTmp += math.Exp(float64(score) - maxScore)
 	}
-	logsumexpScore := newFloat(math.Log(logsumexpScoreTmp) + maxScore)
+	logsumexpScore := float64(math.Log(logsumexpScoreTmp) + maxScore)
 
 	return logsumexpScore
 }
 
-func (npylm *NPYLM) Train(dataContainer *DataContainer, threads_num int, batch_size int) {
-	ch := make(chan int, threads_num)
+// Train trains word segentation model from unsegmnted texts without labeled data.
+func (npylm *NPYLM) Train(dataContainer *DataContainer, threadsNum int, batchSize int) {
+	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
 	bar := pb.StartNew(dataContainer.Size)
 	randIndexes := rand.Perm(dataContainer.Size)
-	for i := 0; i < dataContainer.Size; i += batch_size {
-		end := i + batch_size
+	for i := 0; i < dataContainer.Size; i += batchSize {
+		end := i + batchSize
 		if end > dataContainer.Size {
 			end = dataContainer.Size
 		}
 		bar.Add(end - i)
 		for j := i; j < end; j++ {
 			r := randIndexes[j]
-			npylm.RemoveWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r])
+			npylm.removeWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r])
 		}
 		sampledWordSeqs := make([]context, end-i, end-i)
 		for j := i; j < end; j++ {
@@ -177,7 +178,7 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer, threads_num int, batch_s
 			r := randIndexes[j]
 			dataContainer.SamplingWordSeqs[r] = sampledWordSeqs[j-i]
 			// fmt.Println(sampledWordSeqs[j-i])
-			npylm.AddWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r])
+			npylm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r])
 		}
 	}
 	bar.Finish()
@@ -187,16 +188,18 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer, threads_num int, batch_s
 	return
 }
 
-func (npylm *NPYLM) Test(sents [][]rune, threads_num int) []context {
-	wordSeqs := make([]context, len(sents), len(sents))
-	ch := make(chan int, threads_num)
+// Test inferences word segmentation from input unsegmented texts.
+func (npylm *NPYLM) Test(sents [][]rune, threadsNum int) [][]string {
+	wordSeqs := make([][]string, len(sents), len(sents))
+	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
 	for i := 0; i < len(sents); i++ {
 		ch <- 1
 		wg.Add(1)
 		go func(i int) {
 			forwardScore := npylm.forward(sents[i])
-			wordSeqs[i] = npylm.backward(sents[i], forwardScore, false)
+			wordSeq := npylm.backward(sents[i], forwardScore, false)
+			wordSeqs[i] = wordSeq
 			<-ch
 			wg.Done()
 		}(i)
@@ -209,12 +212,12 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 	// initialize forwardScore
 	forwardScore := make(forwardScoreType, len(sent), len(sent))
 	for t := 0; t < len(sent); t++ {
-		forwardScore[t] = make([]newFloat, npylm.maxWordLength, npylm.maxWordLength)
+		forwardScore[t] = make([]float64, npylm.maxWordLength, npylm.maxWordLength)
 	}
 
 	word := string("")
 	u := make(context, npylm.maxNgram-1, npylm.maxNgram-1) // now bi-gram only
-	base := newFloat(0.0)
+	base := float64(0.0)
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < npylm.maxWordLength; k++ {
 			if t-k >= 0 {
@@ -223,26 +226,26 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 				base = npylm.calcBase(word)
 				if t-k == 0 {
 					score, _ := npylm.CalcProb(word, u, base)
-					forwardScore[t][k] = newFloat(math.Log(float64(score)))
+					forwardScore[t][k] = float64(math.Log(float64(score)))
 					continue
 				}
 			} else {
 				continue
 			}
 			forwardScore[t][k] = 0.0
-			forwardScoreTmp := make([]newFloat, 0, npylm.maxWordLength)
+			forwardScoreTmp := make([]float64, 0, npylm.maxWordLength)
 			for j := 0; j < npylm.maxWordLength; j++ {
 				if t-k-(j+1) >= 0 {
 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 					score, _ := npylm.CalcProb(word, u, base)
-					score = newFloat(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
+					score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
 					forwardScoreTmp = append(forwardScoreTmp, score)
 				} else {
 					continue
 				}
 			}
 			logsumexpScore := npylm.logsumexp(forwardScoreTmp)
-			forwardScore[t][k] = logsumexpScore // - newFloat(math.Log(float64(len(forwardScoreTmp))))
+			forwardScore[t][k] = logsumexpScore // - float64(math.Log(float64(len(forwardScoreTmp))))
 		}
 	}
 
@@ -266,31 +269,31 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 		if prevWord != npylm.eos {
 			base = npylm.calcBase(prevWord)
 		}
-		scoreArray := make([]newFloat, npylm.maxWordLength, npylm.maxWordLength)
-		maxScore := newFloat(math.Inf(-1))
+		scoreArray := make([]float64, npylm.maxWordLength, npylm.maxWordLength)
+		maxScore := float64(math.Inf(-1))
 		maxJ := -1
-		sumScore := newFloat(0.0)
+		sumScore := float64(0.0)
 		for j := 0; j < npylm.maxWordLength; j++ {
 			if t-k-(j+1) >= 0 {
 				u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 				score, _ := npylm.CalcProb(prevWord, u, base)
-				score = newFloat(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
+				score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
 				if score > maxScore {
 					maxScore = score
 					maxJ = j
 				}
-				score = newFloat(math.Exp(float64(score)))
+				score = float64(math.Exp(float64(score)))
 				scoreArray[j] = score
 				sumScore += score
 			} else {
-				scoreArray[j] = 0.0 // newFloat(math.Exp(math.Inf(-1)))
+				scoreArray[j] = 0.0 // float64(math.Exp(math.Inf(-1)))
 			}
 		}
 		// fmt.Println(t, k)
 		// fmt.Println(scoreArray)
 		j := 0
 		if sampling {
-			r := newFloat(rand.Float64()) * sumScore
+			r := float64(rand.Float64()) * sumScore
 			sumScore = 0.0
 			for {
 				sumScore += scoreArray[j]
@@ -322,9 +325,9 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 	return samplingWordReverse
 }
 
-func (npylm *NPYLM) AddWordSeqAsCustomer(wordSeq context) {
+func (npylm *NPYLM) addWordSeqAsCustomer(wordSeq context) {
 	u := make(context, npylm.maxNgram-1, npylm.maxNgram-1)
-	base := newFloat(0.0)
+	base := float64(0.0)
 	for i, word := range wordSeq {
 		base = npylm.calcBase(word)
 		if i == 0 {
@@ -340,7 +343,7 @@ func (npylm *NPYLM) AddWordSeqAsCustomer(wordSeq context) {
 	npylm.AddCustomer(npylm.eos, u, base, npylm.addCustomerBase)
 }
 
-func (npylm *NPYLM) RemoveWordSeqAsCustomer(wordSeq context) {
+func (npylm *NPYLM) removeWordSeqAsCustomer(wordSeq context) {
 	u := make(context, npylm.maxNgram-1, npylm.maxNgram-1)
 	for i, word := range wordSeq {
 		if i == 0 {
@@ -355,6 +358,7 @@ func (npylm *NPYLM) RemoveWordSeqAsCustomer(wordSeq context) {
 	npylm.RemoveCustomer(npylm.eos, u, npylm.removeCustomerBase)
 }
 
+// Initialize initializes parameters.
 func (npylm *NPYLM) Initialize(sents [][]rune, samplingWordSeqs []context) {
 	for i := 0; i < len(sents); i++ {
 		sent := sents[i]
@@ -371,11 +375,12 @@ func (npylm *NPYLM) Initialize(sents [][]rune, samplingWordSeqs []context) {
 				break
 			}
 		}
-		npylm.AddWordSeqAsCustomer(samplingWordSeqs[i])
+		npylm.addWordSeqAsCustomer(samplingWordSeqs[i])
 	}
 	return
 }
 
+// InitializeFromAnnotatedData initializes parameters from annotated texts.
 func (npylm *NPYLM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSeqs []context) {
 	for i := 0; i < len(samplingWordSeqs); i++ {
 		adjustedSamplingWordSeq := make(context, 0, len(sents[i]))
@@ -400,18 +405,18 @@ func (npylm *NPYLM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSeqs
 			}
 		}
 		samplingWordSeqs[i] = adjustedSamplingWordSeq
-		npylm.AddWordSeqAsCustomer(samplingWordSeqs[i])
+		npylm.addWordSeqAsCustomer(samplingWordSeqs[i])
 	}
 	return
 }
 
 func (npylm *NPYLM) poissonCorrection() {
-	a := newFloat(1.0)
-	b := newFloat(1.0)
+	a := float64(1.0)
+	b := float64(1.0)
 	for word, totalTableCount := range npylm.restaurants[""].totalTableCountForCustomer {
 		runeWord := []rune(word)
-		a += (newFloat(totalTableCount) * newFloat(len(runeWord)))
-		b += newFloat(totalTableCount)
+		a += (float64(totalTableCount) * float64(len(runeWord)))
+		b += float64(totalTableCount)
 	}
 	g := distuv.Gamma{}
 	g.Alpha = float64(a)
@@ -425,7 +430,7 @@ func (npylm *NPYLM) poissonCorrection() {
 
 	charVocabSize := len(npylm.vpylm.hpylm.restaurants[""].totalTableCountForCustomer)
 	chars := make([]string, 0, charVocabSize)
-	for char, _ := range npylm.vpylm.hpylm.restaurants[""].totalTableCountForCustomer {
+	for char := range npylm.vpylm.hpylm.restaurants[""].totalTableCountForCustomer {
 		chars = append(chars, char)
 	}
 	sampleSize := 10000
@@ -434,8 +439,8 @@ func (npylm *NPYLM) poissonCorrection() {
 		u := make(context, 0, npylm.maxWordLength)
 		u = append(u, npylm.bow)
 		for {
-			probArray := make([]newFloat, charVocabSize, charVocabSize)
-			sumScore := newFloat(0.0)
+			probArray := make([]float64, charVocabSize, charVocabSize)
+			sumScore := float64(0.0)
 			for charIndex, char := range chars {
 				if char == npylm.bow {
 					continue
@@ -447,7 +452,7 @@ func (npylm *NPYLM) poissonCorrection() {
 				probArray[charIndex] = prob
 				sumScore += prob
 			}
-			r := newFloat(rand.Float64()) * sumScore
+			r := float64(rand.Float64()) * sumScore
 			sumScore = 0.0
 			charIndex := 0
 			for _, prob := range probArray {
@@ -455,22 +460,22 @@ func (npylm *NPYLM) poissonCorrection() {
 				if sumScore > r {
 					break
 				}
-				charIndex += 1
+				charIndex++
 			}
 			char := chars[charIndex]
 
 			if char == npylm.eow || k+1 >= npylm.maxWordLength {
 				break
 			}
-			k += 1
+			k++
 			u = append(u, char)
 		}
-		length2count[k] += 1
+		length2count[k]++
 	}
 
-	length2prob := make([]newFloat, npylm.maxWordLength, npylm.maxWordLength)
+	length2prob := make([]float64, npylm.maxWordLength, npylm.maxWordLength)
 	for k := 0; k < npylm.maxWordLength; k++ {
-		length2prob[k] = newFloat(length2count[k]) / (newFloat(sampleSize) + newFloat(npylm.maxWordLength))
+		length2prob[k] = float64(length2count[k]) / (float64(sampleSize) + float64(npylm.maxWordLength))
 	}
 
 	npylm.length2prob = length2prob

@@ -1,36 +1,40 @@
-package NPYLM
+package npylm
 
 import (
 	"math/rand"
 	"strings"
 )
 
+// VPYLM contains n-gram parameters as restaurants in HPYLM instance.
 type VPYLM struct {
 	hpylm *HPYLM
-	alpha newFloat // hyper-parameter for beta distribution to estimate stop probability
-	beta  newFloat // hyper-parameter for beta distribution to estimate stop probability
+	alpha float64 // hyper-parameter for beta distribution to estimate stop probability
+	beta  float64 // hyper-parameter for beta distribution to estimate stop probability
 }
 
+// NewVPYLM returns VPYLM instance.
 func NewVPYLM(maxDepth int, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, base float64, alpha float64, beta float64) *VPYLM {
 	vpylm := new(VPYLM)
 	vpylm.hpylm = NewHPYLM(maxDepth, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base)
-	vpylm.alpha = newFloat(alpha)
-	vpylm.beta = newFloat(beta)
+	vpylm.alpha = float64(alpha)
+	vpylm.beta = float64(beta)
 
 	return vpylm
 }
 
+// AddCustomer adds n-gram parameters.
+// n-gramの深さをサンプリングし、その深さに HPYLM.AddCustomer をしている。
 func (vpylm *VPYLM) AddCustomer(word string, u context) int {
 	depth := 0
 	// if samplingDepth {
 	_, _, probs := vpylm.CalcProb(word, u)
-	sumScore := newFloat(0.0)
+	sumScore := float64(0.0)
 	for _, prob := range probs {
 		sumScore += prob
 	}
 
 	// sampling depth
-	r := newFloat(rand.Float64()) * sumScore
+	r := float64(rand.Float64()) * sumScore
 	sumScore = 0.0
 	depth = 0
 	for {
@@ -59,6 +63,7 @@ func (vpylm *VPYLM) AddCustomer(word string, u context) int {
 	return depth
 }
 
+// RemoveCustomer removes n-gram parameters.
 func (vpylm *VPYLM) RemoveCustomer(word string, u context, prevSampledDepth int) {
 	// remove stops and passes
 	vpylm.hpylm.RemoveStopAndPassCount(word, u[len(u)-prevSampledDepth:])
@@ -66,17 +71,19 @@ func (vpylm *VPYLM) RemoveCustomer(word string, u context, prevSampledDepth int)
 	return
 }
 
-func (vpylm *VPYLM) CalcProb(word string, u context) (newFloat, []newFloat, []newFloat) {
+// CalcProb returns n-gram prrobability.
+// HPYLM と違い、context が与えられたときのすべての深さの確率を計算し、その値で各深さごとの n-gram 確率を重みづけする。
+func (vpylm *VPYLM) CalcProb(word string, u context) (float64, []float64, []float64) {
 	_, pNgrams := vpylm.hpylm.CalcProb(word, u, vpylm.hpylm.Base)
 
-	stopProbs := make([]newFloat, len(u)+1, len(u)+1)
+	stopProbs := make([]float64, len(u)+1, len(u)+1)
 	vpylm.calcStopProbs(u, stopProbs)
 	// fmt.Println(stopProbs, word, u, "CalcProb from vpylm")
 
-	probs := make([]newFloat, len(u)+1, len(u)+1)
-	pPass := newFloat(1.0)
-	pStop := newFloat(1.0)
-	p := newFloat(0.0)
+	probs := make([]float64, len(u)+1, len(u)+1)
+	pPass := float64(1.0)
+	pStop := float64(1.0)
+	p := float64(0.0)
 	for i, pNgram := range pNgrams {
 		pStop = stopProbs[i] * pPass
 		p += pStop * pNgram
@@ -88,19 +95,19 @@ func (vpylm *VPYLM) CalcProb(word string, u context) (newFloat, []newFloat, []ne
 	return p, pNgrams, probs
 }
 
-func (vpylm *VPYLM) calcStopProbs(u context, stopProbs []newFloat) {
+func (vpylm *VPYLM) calcStopProbs(u context, stopProbs []float64) {
 	if len(u) > vpylm.hpylm.maxDepth {
 		panic("maximum depth error")
 	}
 
-	p := newFloat(0.0)
-	stop := newFloat(0.0)
-	pass := newFloat(0.0)
+	p := float64(0.0)
+	stop := float64(0.0)
+	pass := float64(0.0)
 	for i := 0; i <= len(u); i++ {
 		rst, ok := vpylm.hpylm.restaurants[strings.Join(u[i:], concat)]
 		if ok {
-			stop = newFloat(rst.stop)
-			pass = newFloat(rst.pass)
+			stop = float64(rst.stop)
+			pass = float64(rst.pass)
 		}
 		p = (stop + vpylm.alpha) / (stop + pass + vpylm.alpha + vpylm.beta)
 		stopProbs[len(u)-i] = p

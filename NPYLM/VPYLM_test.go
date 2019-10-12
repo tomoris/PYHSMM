@@ -1,4 +1,4 @@
-package NPYLM
+package npylm
 
 import (
 	"math"
@@ -28,16 +28,16 @@ func TestVPYLM(t *testing.T) {
 	word = "abc"
 	u := context{"fgh", "de"}
 
-	stopProbs := make([]newFloat, len(u)+1, len(u)+1)
+	stopProbs := make([]float64, len(u)+1, len(u)+1)
 	vpylm.calcStopProbs(u, stopProbs)
-	stopProbsCorrect := []newFloat{0.5, 0.5, 0.5}
+	stopProbsCorrect := []float64{0.5, 0.5, 0.5}
 	if !(reflect.DeepEqual(stopProbs, stopProbsCorrect)) {
 		t.Error("stopProbs = ", stopProbs, "stopProbsCorrect = ", stopProbsCorrect)
 	}
 
 	pAddZero, _, _ := vpylm.CalcProb(word, u)
 	pAddZeroCorrect := (base * 0.5) + (base * 0.25) + (base * 0.125)
-	if !(pAddZero == newFloat(pAddZeroCorrect)) {
+	if !(pAddZero == float64(pAddZeroCorrect)) {
 		t.Error("pAddZero = ", pAddZero, "pAddZeroCorrect = ", pAddZeroCorrect)
 	}
 
@@ -48,7 +48,7 @@ func TestVPYLM(t *testing.T) {
 	sampledDepth := vpylm.AddCustomer(word, u)
 	sampledDepthMemory = append(sampledDepthMemory, sampledDepth)
 	pAddOne, probsAddOne, _ := vpylm.CalcProb(word, u)
-	if !(math.Abs(float64((pAddOne - newFloat(pCorrect)))) < 0.00001) {
+	if !(math.Abs(float64((pAddOne - float64(pCorrect)))) < 0.00001) {
 		t.Error("Maybe error! please test several times. ", "pAddOne = ", pAddOne, "pCorrect = ", pCorrect)
 	}
 	if !(pAddOne >= pAddZero) {
@@ -113,16 +113,16 @@ func TestVPYLM(t *testing.T) {
 // 	word = "abc"
 // 	u := context{"fgh", "de"}
 
-// 	stopProbs := make([]newFloat, len(u)+1, len(u)+1)
+// 	stopProbs := make([]float64, len(u)+1, len(u)+1)
 // 	vpylm.calcStopProbs(u, stopProbs)
-// 	stopProbsCorrect := []newFloat{0.5, 0.5, 0.5}
+// 	stopProbsCorrect := []float64{0.5, 0.5, 0.5}
 // 	if !(reflect.DeepEqual(stopProbs, stopProbsCorrect)) {
 // 		t.Error("stopProbs = ", stopProbs, "stopProbsCorrect = ", stopProbsCorrect)
 // 	}
 
 // 	pAddZero, _, _ := vpylm.CalcProb(word, u)
 // 	pAddZeroCorrect := (base * 0.5) + (base * 0.25) + (base * 0.125)
-// 	if !(pAddZero == newFloat(pAddZeroCorrect)) {
+// 	if !(pAddZero == float64(pAddZeroCorrect)) {
 // 		t.Error("pAddZero = ", pAddZero, "pAddZeroCorrect = ", pAddZeroCorrect)
 // 	}
 

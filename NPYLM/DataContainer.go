@@ -1,4 +1,4 @@
-package NPYLM
+package npylm
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// DataContainer contains information of sentences, word sequences and their part-of-speech sequence.
 type DataContainer struct {
 	Sents            [][]rune
 	SamplingWordSeqs []context
@@ -14,6 +15,8 @@ type DataContainer struct {
 	Size             int
 }
 
+// NewDataContainer returns DataContainer instance.
+// input file is required unsegmented texts (not split space)
 func NewDataContainer(filePath string) *DataContainer {
 	dataContainer := new(DataContainer)
 
@@ -45,6 +48,8 @@ func NewDataContainer(filePath string) *DataContainer {
 	return dataContainer
 }
 
+// NewDataContainerFromAnnotatedData returns DataContainer instance.
+// input file is required segmented texts (split space)
 func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 	dataContainer := new(DataContainer)
 
