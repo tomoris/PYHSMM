@@ -1,6 +1,6 @@
 // +build !
 
-package npylm
+package bayselm
 
 import (
 	"fmt"

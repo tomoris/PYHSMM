@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"./npylm"
+	"./bayselm"
 )
 
 func main() {
@@ -34,10 +34,10 @@ func main() {
 
 	runtime.GOMAXPROCS(*flagThreads)
 	fmt.Println("Building model")
-	model := npylm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
+	model := bayselm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
 	// npylm := NPYLM.NewPYHSMM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength, 10)
 	fmt.Println("Loading data and initialize model")
-	dataContainer := npylm.NewDataContainer(*flagRawFilePath)
+	dataContainer := bayselm.NewDataContainer(*flagRawFilePath)
 	model.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
 	// dataContainer := NPYLM.NewDataContainerFromAnnotatedData(*flagSegmentedFilePath)
 	// npylm.InitializeFromAnnotatedData(dataContainer.Sents, dataContainer.SamplingWordSeqs)

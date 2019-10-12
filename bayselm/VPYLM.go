@@ -1,4 +1,4 @@
-package npylm
+package bayselm
 
 import (
 	"math/rand"
