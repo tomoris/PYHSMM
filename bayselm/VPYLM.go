@@ -47,17 +47,6 @@ func (vpylm *VPYLM) AddCustomer(word string, u context) int {
 			panic("sampling error in VPYLM")
 		}
 	}
-	// } else {
-	// 	depth = len(u)
-	// }
-
-	// update stops and passes
-	// dep := 0
-	// for ; dep < depth; dep++ {
-	// 	vpylm.passes[dep] += 1
-	// }
-	// vpylm.stops[dep] += 1
-	// fmt.Println(depth, word, u, probs, "addCustmer from vpylm")
 	vpylm.hpylm.AddCustomer(word, u[len(u)-depth:], vpylm.hpylm.Base, vpylm.hpylm.addCustomerBaseNull)
 	vpylm.hpylm.AddStopAndPassCount(word, u[len(u)-depth:])
 	return depth
@@ -78,7 +67,6 @@ func (vpylm *VPYLM) CalcProb(word string, u context) (float64, []float64, []floa
 
 	stopProbs := make([]float64, len(u)+1, len(u)+1)
 	vpylm.calcStopProbs(u, stopProbs)
-	// fmt.Println(stopProbs, word, u, "CalcProb from vpylm")
 
 	probs := make([]float64, len(u)+1, len(u)+1)
 	pPass := float64(1.0)
