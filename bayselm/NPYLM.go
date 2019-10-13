@@ -54,20 +54,20 @@ func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB flo
 
 func (npylm *NPYLM) addCustomerBase(word string) {
 	if word != npylm.bos && word != npylm.eos {
-		// fmt.Println("start addCustomerBase")
 		runeWord := []rune(word)
 		sampledDepthMemory := make([]int, len(runeWord)+1, len(runeWord)+1)
-		uChar := make(context, 0, len(runeWord)+1)
-		uChar = append(uChar, npylm.bow)
+		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
+		for i := 0; i < npylm.maxWordLength; i++ {
+			uChar = append(uChar, npylm.bow)
+		}
 		for i := 0; i < len(runeWord); i++ {
 			lastChar := string(runeWord[i])
 			sampledDepth := npylm.vpylm.AddCustomer(lastChar, uChar)
 			sampledDepthMemory[i] = sampledDepth
-			uChar = append(uChar, string(runeWord[i]))
+			uChar = append(uChar[1:], string(runeWord[i]))
 		}
 		sampledDepth := npylm.vpylm.AddCustomer(npylm.eow, uChar)
 		sampledDepthMemory[len(runeWord)] = sampledDepth
-		// fmt.Println(sampledDepthMemory, word, uChar, "addCustomerBase")
 
 		sampledDepthMemories, ok := npylm.word2sampledDepthMemory[word]
 		if !ok {
@@ -93,12 +93,14 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 			panic(errMsg)
 		}
 		sampledDepthMemory := sampledDepthMemoies[0]
-		uChar := make(context, 0, len(runeWord)+1)
-		uChar = append(uChar, npylm.bow)
+		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
+		for i := 0; i < npylm.maxWordLength; i++ {
+			uChar = append(uChar, npylm.bow)
+		}
 		for i := 0; i < len(runeWord); i++ {
 			lastChar := string(runeWord[i])
 			npylm.vpylm.RemoveCustomer(lastChar, uChar, sampledDepthMemory[i])
-			uChar = append(uChar, string(runeWord[i]))
+			uChar = append(uChar[1:], string(runeWord[i]))
 		}
 		npylm.vpylm.RemoveCustomer(npylm.eow, uChar, sampledDepthMemory[len(runeWord)])
 
@@ -113,13 +115,15 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 func (npylm *NPYLM) calcBase(word string) float64 {
 	p := float64(1.0)
 	runeWord := []rune(word)
-	uChar := make(context, 0, len(runeWord)+1)
-	uChar = append(uChar, npylm.bow)
+	uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
+	for i := 0; i < npylm.maxWordLength; i++ {
+		uChar = append(uChar, npylm.bow)
+	}
 	for i := 0; i < len(runeWord); i++ {
 		lastChar := string(runeWord[i])
 		pTmpMixed, _, _ := npylm.vpylm.CalcProb(lastChar, uChar)
 		p *= pTmpMixed
-		uChar = append(uChar, string(runeWord[i]))
+		uChar = append(uChar[1:], string(runeWord[i]))
 	}
 	pTmpMixed, _, _ := npylm.vpylm.CalcProb(npylm.eow, uChar)
 	p *= pTmpMixed
@@ -177,7 +181,6 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer, threadsNum int, batchSiz
 		for j := i; j < end; j++ {
 			r := randIndexes[j]
 			dataContainer.SamplingWordSeqs[r] = sampledWordSeqs[j-i]
-			// fmt.Println(sampledWordSeqs[j-i])
 			npylm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r])
 		}
 	}
@@ -245,16 +248,14 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 				}
 			}
 			logsumexpScore := npylm.logsumexp(forwardScoreTmp)
-			forwardScore[t][k] = logsumexpScore // - float64(math.Log(float64(len(forwardScoreTmp))))
+			forwardScore[t][k] = logsumexpScore - float64(math.Log(float64(len(forwardScoreTmp))))
 		}
 	}
 
-	// fmt.Println("forward", forwardScore)
 	return forwardScore
 }
 
 func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, sampling bool) context {
-	// fmt.Println(npylm.restaurants)
 	t := len(sent)
 	k := 0
 	prevWord := npylm.eos
@@ -289,8 +290,6 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 				scoreArray[j] = 0.0 // float64(math.Exp(math.Inf(-1)))
 			}
 		}
-		// fmt.Println(t, k)
-		// fmt.Println(scoreArray)
 		j := 0
 		if sampling {
 			r := float64(rand.Float64()) * sumScore
