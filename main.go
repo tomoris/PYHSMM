@@ -27,6 +27,7 @@ func main() {
 		flagBeta          = flag.Float64("beta", 1.0, "hyper-parameter in NPYLM")
 		flagMaxNgram      = flag.Int("ngram", 2, "number of maximum n-gram")
 		flagMaxWordLength = flag.Int("length", 15, "number of maximum word length")
+		flagPosSize       = flag.Int("posSize", 10, "size of part-of-speech tags")
 		flagThreads       = flag.Int("threads", 8, "number of threads")
 		flagBatch         = flag.Int("batch", 32, "batch size")
 	)
@@ -34,11 +35,12 @@ func main() {
 
 	runtime.GOMAXPROCS(*flagThreads)
 	fmt.Println("Building model")
-	npylm := bayselm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
-	// npylm := NPYLM.NewPYHSMM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength, 10)
+	// npylm := bayselm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
+	pyhsmm := bayselm.NewPYHSMM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength, *flagPosSize)
 	fmt.Println("Loading data and initialize model")
 	dataContainer := bayselm.NewDataContainer(*flagRawFilePath)
-	npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
+	// npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
+	pyhsmm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs, dataContainer.SamplingPosSeqs)
 	// dataContainer := NPYLM.NewDataContainerFromAnnotatedData(*flagSegmentedFilePath)
 	// npylm.InitializeFromAnnotatedData(dataContainer.Sents, dataContainer.SamplingWordSeqs)
 	// npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs, dataContainer.SamplingPosSeqs)
@@ -71,9 +73,11 @@ func main() {
 	fmt.Println("Training model")
 	for epoch := 0; epoch < *flagEpoch; epoch++ {
 		// fmt.Println("prev", dataContainer.SamplingWordSeqs[0])
-		npylm.TrainWordSegmentation(dataContainer, *flagThreads, *flagBatch)
+		// npylm.TrainWordSegmentation(dataContainer, *flagThreads, *flagBatch)
+		pyhsmm.TrainWordSegmentationAndPOSTagging(dataContainer, *flagThreads, *flagBatch)
 		testSize := 50
-		wordSeqs := npylm.TestWordSegmentation(dataContainer.Sents[:testSize], *flagThreads)
+		// wordSeqs := npylm.TestWordSegmentation(dataContainer.Sents[:testSize], *flagThreads)
+		wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(dataContainer.Sents[:testSize], *flagThreads)
 		for i := 0; i < testSize; i++ {
 			fmt.Println("test", wordSeqs[i])
 		}

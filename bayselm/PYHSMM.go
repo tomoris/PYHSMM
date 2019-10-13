@@ -1,16 +1,16 @@
-// +build !
-
 package bayselm
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
-	_ "strings"
+	"sync"
+
+	"github.com/cheggaaa/pb/v3"
 )
 
-type forwardScoreForWordAndPosType [][][]newFloat
+type forwardScoreForWordAndPosType [][][]float64
 
+// PYHSMM contains posSize-th NPYLM instances.
 type PYHSMM struct {
 	npylms []*NPYLM
 
@@ -26,6 +26,7 @@ type PYHSMM struct {
 	PosSize int
 }
 
+// NewPYHSMM returns PYHSMM instance.
 func NewPYHSMM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int) *PYHSMM {
 
 	npylms := make([]*NPYLM, PosSize+1, PosSize+1)
@@ -33,21 +34,50 @@ func NewPYHSMM(initialTheta float64, initialD float64, gammaA float64, gammaB fl
 		npylms[pos] = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
 	}
 
-	pyhsmm := &PYHSMM{npylms, maxNgram, maxWordLength, "<BOS>", "<EOS>", "<BOW>", "<EOW>", PosSize, PosSize}
+	pyhsmm := &PYHSMM{npylms, maxNgram, maxWordLength, bos, "<EOS>", "<BOW>", "<EOW>", PosSize, PosSize}
 
 	return pyhsmm
 }
 
-func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
-	for i := 0; i < dataContainer.Size; i++ {
-		sent := dataContainer.Sents[i]
-		pyhsmm.RemoveWordSeqAsCustomer(dataContainer.SamplingWordSeqs[i], dataContainer.SamplingPosSeqs[i])
-		forwardScore := pyhsmm.forward(sent)
-		dataContainer.SamplingWordSeqs[i], dataContainer.SamplingPosSeqs[i] = pyhsmm.backward(sent, forwardScore, true)
-		fmt.Println(dataContainer.SamplingWordSeqs[i])
-		fmt.Println(dataContainer.SamplingPosSeqs[i])
-		pyhsmm.AddWordSeqAsCustomer(dataContainer.SamplingWordSeqs[i], dataContainer.SamplingPosSeqs[i])
+// TrainWordSegmentationAndPOSTagging trains word segentation model from unsegmnted texts without labeled data.
+func (pyhsmm *PYHSMM) TrainWordSegmentationAndPOSTagging(dataContainer *DataContainer, threadsNum int, batchSize int) {
+	ch := make(chan int, threadsNum)
+	wg := sync.WaitGroup{}
+	bar := pb.StartNew(dataContainer.Size)
+	randIndexes := rand.Perm(dataContainer.Size)
+	for i := 0; i < dataContainer.Size; i += batchSize {
+		end := i + batchSize
+		if end > dataContainer.Size {
+			end = dataContainer.Size
+		}
+		bar.Add(end - i)
+		for j := i; j < end; j++ {
+			r := randIndexes[j]
+			pyhsmm.removeWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r], dataContainer.SamplingPosSeqs[r])
+		}
+		sampledWordSeqs := make([]context, end-i, end-i)
+		sampledPosSeqs := make([][]int, end-i, end-i)
+		for j := i; j < end; j++ {
+			ch <- 1
+			wg.Add(1)
+			go func(j int) {
+				r := randIndexes[j]
+				sent := dataContainer.Sents[r]
+				forwardScore := pyhsmm.forward(sent)
+				sampledWordSeqs[j-i], sampledPosSeqs[j-i] = pyhsmm.backward(sent, forwardScore, true)
+				<-ch
+				wg.Done()
+			}(j)
+		}
+		wg.Wait()
+		for j := i; j < end; j++ {
+			r := randIndexes[j]
+			dataContainer.SamplingWordSeqs[r] = sampledWordSeqs[j-i]
+			dataContainer.SamplingPosSeqs[r] = sampledPosSeqs[j-i]
+			pyhsmm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[r], dataContainer.SamplingPosSeqs[r])
+		}
 	}
+	bar.Finish()
 	for pos := 0; pos < pyhsmm.PosSize; pos++ {
 		pyhsmm.npylms[pos].poissonCorrection()
 		pyhsmm.npylms[pos].estimateHyperPrameters()
@@ -56,25 +86,41 @@ func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
 	return
 }
 
-func (pyhsmm *PYHSMM) Test(sent []rune) (context, []int) {
-	forwardScore := pyhsmm.forward(sent)
-	wordSeq, posSeq := pyhsmm.backward(sent, forwardScore, false)
-	return wordSeq, posSeq
+// TestWordSegmentationAndPOSTagging inferences word segmentation from input unsegmented texts.
+func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]rune, threadsNum int) ([][]string, [][]int) {
+	wordSeqs := make([][]string, len(sents), len(sents))
+	posSeqs := make([][]int, len(sents), len(sents))
+	ch := make(chan int, threadsNum)
+	wg := sync.WaitGroup{}
+	for i := 0; i < len(sents); i++ {
+		ch <- 1
+		wg.Add(1)
+		go func(i int) {
+			forwardScore := pyhsmm.forward(sents[i])
+			wordSeq, posSeq := pyhsmm.backward(sents[i], forwardScore, false)
+			wordSeqs[i] = wordSeq
+			posSeqs[i] = posSeq
+			<-ch
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	return wordSeqs, posSeqs
 }
 
 func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 	// initialize forwardScore
 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
 	for t := 0; t < len(sent); t++ {
-		forwardScore[t] = make([][]newFloat, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
+		forwardScore[t] = make([][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
-			forwardScore[t][k] = make([]newFloat, pyhsmm.PosSize, pyhsmm.PosSize)
+			forwardScore[t][k] = make([]float64, pyhsmm.PosSize, pyhsmm.PosSize)
 		}
 	}
 
 	word := string("")
 	u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
-	base := newFloat(0.0)
+	base := float64(0.0)
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
@@ -84,20 +130,20 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 					base = pyhsmm.npylms[pos].calcBase(word)
 					if t-k == 0 {
 						score, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-						forwardScore[t][k][pos] = newFloat(math.Log(float64(score)))
+						forwardScore[t][k][pos] = float64(math.Log(float64(score)))
 						continue
 					}
 				} else {
 					continue
 				}
 				forwardScore[t][k][pos] = 0.0
-				forwardScoreTmp := make([]newFloat, 0, pyhsmm.maxWordLength*pyhsmm.PosSize)
+				forwardScoreTmp := make([]float64, 0, pyhsmm.maxWordLength*pyhsmm.PosSize)
 				for j := 0; j < pyhsmm.maxWordLength; j++ {
 					for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
 						if t-k-(j+1) >= 0 {
 							u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 							score, _ := pyhsmm.npylms[prevPos].CalcProb(word, u, base)
-							score = newFloat(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j][prevPos]))
+							score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j][prevPos]))
 							forwardScoreTmp = append(forwardScoreTmp, score)
 						} else {
 							continue
@@ -106,7 +152,7 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 
 				}
 				logsumexpScore := pyhsmm.npylms[0].logsumexp(forwardScoreTmp)
-				forwardScore[t][k][pos] = logsumexpScore
+				forwardScore[t][k][pos] = logsumexpScore - float64(math.Log(float64(len(forwardScoreTmp))))
 			}
 		}
 	}
@@ -131,34 +177,34 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 		if prevWord != pyhsmm.eos {
 			base = pyhsmm.npylms[prevPos].calcBase(prevWord)
 		}
-		scoreArray := make([]newFloat, pyhsmm.maxWordLength*pyhsmm.PosSize, pyhsmm.maxWordLength*pyhsmm.PosSize)
-		maxScore := newFloat(math.Inf(-1))
+		scoreArray := make([]float64, pyhsmm.maxWordLength*pyhsmm.PosSize, pyhsmm.maxWordLength*pyhsmm.PosSize)
+		maxScore := float64(math.Inf(-1))
 		maxJ := -1
 		maxNextPos := -1
-		sumScore := newFloat(0.0)
+		sumScore := float64(0.0)
 		for j := 0; j < pyhsmm.maxWordLength; j++ {
 			for nextPos := 0; nextPos < pyhsmm.PosSize; nextPos++ {
 				if t-k-(j+1) >= 0 {
 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 					score, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
-					score = newFloat(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j][nextPos]))
+					score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j][nextPos]))
 					if score > maxScore {
 						maxScore = score
 						maxJ = j
 						maxNextPos = nextPos
 					}
-					score = newFloat(math.Exp(float64(score)))
+					score = float64(math.Exp(float64(score)))
 					scoreArray[j*pyhsmm.PosSize+nextPos] = score
 					sumScore += score
 				} else {
-					scoreArray[j*pyhsmm.PosSize+nextPos] = newFloat(math.Inf(-1))
+					scoreArray[j*pyhsmm.PosSize+nextPos] = float64(math.Inf(-1))
 				}
 			}
 		}
 		j := 0
 		nextPos := 0
 		if sampling {
-			r := newFloat(rand.Float64()) * sumScore
+			r := float64(rand.Float64()) * sumScore
 			sumScore = 0.0
 			for {
 				sumScore += scoreArray[j*pyhsmm.PosSize+nextPos]
@@ -202,9 +248,9 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 	return samplingWordReverse, samplingPosReverse
 }
 
-func (pyhsmm *PYHSMM) AddWordSeqAsCustomer(wordSeq context, posSeq []int) {
+func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
-	base := newFloat(0.0)
+	base := float64(0.0)
 	for i, word := range wordSeq {
 		pos := posSeq[i]
 		base = pyhsmm.npylms[pos].calcBase(word)
@@ -221,7 +267,7 @@ func (pyhsmm *PYHSMM) AddWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[pyhsmm.eosPos].addCustomerBase)
 }
 
-func (pyhsmm *PYHSMM) RemoveWordSeqAsCustomer(wordSeq context, posSeq []int) {
+func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
 	for i, word := range wordSeq {
 		pos := posSeq[i]
@@ -237,12 +283,14 @@ func (pyhsmm *PYHSMM) RemoveWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[pyhsmm.eosPos].removeCustomerBase)
 }
 
+// Initialize initializes parameters.
 func (pyhsmm *PYHSMM) Initialize(sents [][]rune, samplingWordSeqs []context, samplingPosSeqs [][]int) {
 	for i := 0; i < len(sents); i++ {
 		sent := sents[i]
 		start := 0
 		for {
-			end := start + pyhsmm.maxWordLength
+			r := rand.Intn(pyhsmm.maxWordLength) + 1
+			end := start + r
 			if end > len(sent) {
 				end = len(sent)
 			}
@@ -254,7 +302,7 @@ func (pyhsmm *PYHSMM) Initialize(sents [][]rune, samplingWordSeqs []context, sam
 				break
 			}
 		}
-		pyhsmm.AddWordSeqAsCustomer(samplingWordSeqs[i], samplingPosSeqs[i])
+		pyhsmm.addWordSeqAsCustomer(samplingWordSeqs[i], samplingPosSeqs[i])
 	}
 	return
 }
