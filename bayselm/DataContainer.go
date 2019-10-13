@@ -9,10 +9,11 @@ import (
 
 // DataContainer contains information of sentences, word sequences and their part-of-speech sequence.
 type DataContainer struct {
-	Sents            [][]rune
-	SamplingWordSeqs []context
-	SamplingPosSeqs  [][]int
-	Size             int
+	Sents                 [][]rune
+	SamplingWordSeqs      []context
+	SamplingPosSeqs       [][]int // for PYHSMM
+	SamplingDepthMemories [][]int // for VPYLM
+	Size                  int
 }
 
 // NewDataContainer returns DataContainer instance.
@@ -41,6 +42,7 @@ func NewDataContainer(filePath string) *DataContainer {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
 			dataContainer.SamplingPosSeqs = append(dataContainer.SamplingPosSeqs, make([]int, 0, len(sent)))
+			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(sent)))
 			count++
 		}
 	}
@@ -75,6 +77,7 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 			wordSeq := make(context, 0, len(sent))
 			wordSeq = context(strings.Fields(sentStr))
 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
+			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(wordSeq)))
 			count++
 		}
 	}

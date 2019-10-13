@@ -71,9 +71,9 @@ func main() {
 	fmt.Println("Training model")
 	for epoch := 0; epoch < *flagEpoch; epoch++ {
 		// fmt.Println("prev", dataContainer.SamplingWordSeqs[0])
-		npylm.Train(dataContainer, *flagThreads, *flagBatch)
+		npylm.TrainWordSegmentation(dataContainer, *flagThreads, *flagBatch)
 		testSize := 50
-		wordSeqs := npylm.Test(dataContainer.Sents[:testSize], *flagThreads)
+		wordSeqs := npylm.TestWordSegmentation(dataContainer.Sents[:testSize], *flagThreads)
 		for i := 0; i < testSize; i++ {
 			fmt.Println("test", wordSeqs[i])
 		}

@@ -115,6 +115,10 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 func (npylm *NPYLM) calcBase(word string) float64 {
 	p := float64(1.0)
 	runeWord := []rune(word)
+	if len(runeWord) > npylm.maxWordLength {
+		errMsg := fmt.Sprintf("calcBase error. length of word (%v) is longer than npylm.maxWordLength (%v)", word, npylm.maxWordLength)
+		panic(errMsg)
+	}
 	uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
 	for i := 0; i < npylm.maxWordLength; i++ {
 		uChar = append(uChar, npylm.bow)
@@ -148,8 +152,8 @@ func (npylm *NPYLM) logsumexp(forwardScoreTmp []float64) float64 {
 	return logsumexpScore
 }
 
-// Train trains word segentation model from unsegmnted texts without labeled data.
-func (npylm *NPYLM) Train(dataContainer *DataContainer, threadsNum int, batchSize int) {
+// TrainWordSegmentation trains word segentation model from unsegmnted texts without labeled data.
+func (npylm *NPYLM) TrainWordSegmentation(dataContainer *DataContainer, threadsNum int, batchSize int) {
 	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
 	bar := pb.StartNew(dataContainer.Size)
@@ -191,8 +195,8 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer, threadsNum int, batchSiz
 	return
 }
 
-// Test inferences word segmentation from input unsegmented texts.
-func (npylm *NPYLM) Test(sents [][]rune, threadsNum int) [][]string {
+// TestWordSegmentation inferences word segmentation from input unsegmented texts.
+func (npylm *NPYLM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]string {
 	wordSeqs := make([][]string, len(sents), len(sents))
 	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
@@ -479,4 +483,39 @@ func (npylm *NPYLM) poissonCorrection() {
 
 	npylm.length2prob = length2prob
 	return
+}
+
+// Train train n-gram parameters from given word sequences.
+func (npylm *NPYLM) Train(dataContainer *DataContainer) {
+	removeFlag := true
+	if len(npylm.vpylm.hpylm.restaurants) == 0 { // epoch == 0
+		removeFlag = false
+	}
+	randIndexes := rand.Perm(dataContainer.Size)
+	for i := 0; i < dataContainer.Size; i++ {
+		r := randIndexes[i]
+		wordSeq := dataContainer.SamplingWordSeqs[r]
+		if removeFlag {
+			npylm.removeWordSeqAsCustomer(wordSeq)
+		}
+		npylm.addWordSeqAsCustomer(wordSeq)
+	}
+	npylm.poissonCorrection()
+	npylm.estimateHyperPrameters()
+	npylm.vpylm.hpylm.estimateHyperPrameters()
+	return
+}
+
+// ReturnNgramProb returns n-gram probability.
+// This is used for interface of LmModel.
+func (npylm *NPYLM) ReturnNgramProb(word string, u context) float64 {
+	base := npylm.calcBase(word)
+	p, _ := npylm.CalcProb(word, u, base)
+	return p
+}
+
+// ReturnMaxN returns maximum length of n-gram.
+// This is used for interface of LmModel.
+func (npylm *NPYLM) ReturnMaxN() int {
+	return npylm.maxNgram
 }

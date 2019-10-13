@@ -146,12 +146,12 @@ func TestPerformanceOfHPYLM(t *testing.T) {
 	theta = 1.0
 	d = 0.1
 	epoch = 10
-	var hpylm LmModel
+	var hpylm NgramLM
 	hpylm = NewHPYLM(maxN-1, theta, d, 1.0, 1.0, 1.0, 1.0, base)
 
 	var interporationRates []float64
 	interporationRates = []float64{0.1, 0.1, 0.1}
-	var interporatedNgram LmModel
+	var interporatedNgram NgramLM
 	interporatedNgram = NewNgram(maxN, interporationRates, base)
 
 	dataContainerForTrain := NewDataContainerFromAnnotatedData("../alice.train.txt")

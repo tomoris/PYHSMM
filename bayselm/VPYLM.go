@@ -102,3 +102,52 @@ func (vpylm *VPYLM) calcStopProbs(u context, stopProbs []float64) {
 	}
 	return
 }
+
+// Train train n-gram parameters from given word sequences.
+func (vpylm *VPYLM) Train(dataContainer *DataContainer) {
+	removeFlag := true
+	if len(vpylm.hpylm.restaurants) == 0 { // epoch == 0
+		removeFlag = false
+	}
+	randIndexes := rand.Perm(dataContainer.Size)
+	for i := 0; i < dataContainer.Size; i++ {
+		r := randIndexes[i]
+		wordSeq := dataContainer.SamplingWordSeqs[r]
+		if removeFlag {
+			u := make(context, 0, vpylm.hpylm.maxDepth)
+			for n := 0; n < vpylm.hpylm.maxDepth; n++ {
+				u = append(u, bos)
+			}
+			for j, word := range wordSeq {
+				vpylm.RemoveCustomer(word, u, dataContainer.SamplingDepthMemories[r][j])
+				u = append(u[1:], word)
+			}
+		}
+		sampledDepthMemory := make([]int, len(wordSeq), len(wordSeq))
+		u := make(context, 0, vpylm.hpylm.maxDepth)
+		for n := 0; n < vpylm.hpylm.maxDepth; n++ {
+			u = append(u, bos)
+		}
+		for j, word := range wordSeq {
+			sampledDepth := vpylm.AddCustomer(word, u)
+			sampledDepthMemory[j] = sampledDepth
+			u = append(u[1:], word)
+		}
+		dataContainer.SamplingDepthMemories[r] = sampledDepthMemory
+	}
+	vpylm.hpylm.estimateHyperPrameters()
+	return
+}
+
+// ReturnNgramProb returns n-gram probability.
+// This is used for interface of LmModel.
+func (vpylm *VPYLM) ReturnNgramProb(word string, u context) float64 {
+	p, _, _ := vpylm.CalcProb(word, u)
+	return p
+}
+
+// ReturnMaxN returns maximum length of n-gram.
+// This is used for interface of LmModel.
+func (vpylm *VPYLM) ReturnMaxN() int {
+	return vpylm.hpylm.maxDepth + 1
+}

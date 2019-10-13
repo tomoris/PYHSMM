@@ -415,8 +415,10 @@ func (hpylm *HPYLM) Train(dataContainer *DataContainer) {
 	if len(hpylm.restaurants) == 0 { // epoch == 0
 		removeFlag = false
 	}
+	randIndexes := rand.Perm(dataContainer.Size)
 	for i := 0; i < dataContainer.Size; i++ {
-		wordSeq := dataContainer.SamplingWordSeqs[i]
+		r := randIndexes[i]
+		wordSeq := dataContainer.SamplingWordSeqs[r]
 		if removeFlag {
 			u := make(context, 0, hpylm.maxDepth)
 			for n := 0; n < hpylm.maxDepth; n++ {
