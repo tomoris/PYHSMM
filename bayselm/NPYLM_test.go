@@ -1,6 +1,7 @@
 package bayselm
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -18,7 +19,9 @@ func TestPerformanceOfNPYLM(t *testing.T) {
 	alpha = 1.0
 	beta = 1.0
 	maxN = 2
-	base = float64(1.0 / 2097152.0) // 1 / 2^21 , size of character vocabulary in utf-8 encodeing
+	charVocabSize := 100.0     // 適当
+	averageLengthOfWord := 6.0 // 適当
+	base = float64(1.0 / math.Pow(charVocabSize, averageLengthOfWord))
 	theta = 1.0
 	d = 0.1
 	epoch = 5
