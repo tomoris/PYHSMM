@@ -39,7 +39,7 @@ func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB flo
 	dummyBase := charBase
 	hpylm := NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, dummyBase)
 	vpylm := NewVPYLM(maxWordLength+2, initialTheta, initialD, gammaA, gammaB, betaA, betaB, charBase, alpha, beta)
-	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, "<BOS>", "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]float64, maxWordLength, maxWordLength), make(map[string][][]int)}
+	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, bos, "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]float64, maxWordLength, maxWordLength), make(map[string][][]int)}
 
 	npylm.poisson.Lambda = float64(maxWordLength) / 2.0
 	for k := 0; k < maxWordLength; k++ {

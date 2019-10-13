@@ -41,31 +41,31 @@ func TestHPYLM(t *testing.T) {
 	if !(pAddOne >= pAddZero) {
 		t.Error("pAddOne = ", pAddOne, "pAddZero = ", pAddZero)
 	}
-	customerCountRestISfghde := hpylm.restaurants["fgh<concat>de"].customerCount["abc"]
-	totalCustomerCountRestISfghde := hpylm.restaurants["fgh<concat>de"].totalCustomerCount
-	totalTableCountForCustomerRestISfghde := hpylm.restaurants["fgh<concat>de"].totalTableCountForCustomer["abc"]
-	totalTableCountRestISfghde := hpylm.restaurants["fgh<concat>de"].totalTableCount
-	customerCountRestISde := hpylm.restaurants["de"].customerCount["abc"]
-	totalCustomerCountRestISde := hpylm.restaurants["de"].totalCustomerCount
-	totalTableCountForCustomerRestISde := hpylm.restaurants["de"].totalTableCountForCustomer["abc"]
-	totalTableCountRestISde := hpylm.restaurants["de"].totalTableCount
-	customerCountRestIS := hpylm.restaurants[""].customerCount["abc"]
-	totalCustomerCountRestIS := hpylm.restaurants[""].totalCustomerCount
-	totalTableCountForCustomerRestIS := hpylm.restaurants[""].totalTableCountForCustomer["abc"]
-	totalTableCountRestIS := hpylm.restaurants[""].totalTableCount
+	customerCountRestOFfghde := hpylm.restaurants["fgh<concat>de"].customerCount["abc"]
+	totalCustomerCountRestOFfghde := hpylm.restaurants["fgh<concat>de"].totalCustomerCount
+	totalTableCountForCustomerRestOFfghde := hpylm.restaurants["fgh<concat>de"].totalTableCountForCustomer["abc"]
+	totalTableCountRestOFfghde := hpylm.restaurants["fgh<concat>de"].totalTableCount
+	customerCountRestOFde := hpylm.restaurants["de"].customerCount["abc"]
+	totalCustomerCountRestOFde := hpylm.restaurants["de"].totalCustomerCount
+	totalTableCountForCustomerRestOFde := hpylm.restaurants["de"].totalTableCountForCustomer["abc"]
+	totalTableCountRestOFde := hpylm.restaurants["de"].totalTableCount
+	customerCountRestOF := hpylm.restaurants[""].customerCount["abc"]
+	totalCustomerCountRestOF := hpylm.restaurants[""].totalCustomerCount
+	totalTableCountForCustomerRestOF := hpylm.restaurants[""].totalTableCountForCustomer["abc"]
+	totalTableCountRestOF := hpylm.restaurants[""].totalTableCount
 	addOnePrams := make([]newUint, 0, 0)
-	addOnePrams = append(addOnePrams, newUint(customerCountRestISfghde))
-	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestISfghde))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestISfghde))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountRestISfghde))
-	addOnePrams = append(addOnePrams, newUint(customerCountRestISde))
-	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestISde))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestISde))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountRestISde))
-	addOnePrams = append(addOnePrams, newUint(customerCountRestIS))
-	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestIS))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestIS))
-	addOnePrams = append(addOnePrams, newUint(totalTableCountRestIS))
+	addOnePrams = append(addOnePrams, newUint(customerCountRestOFfghde))
+	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestOFfghde))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestOFfghde))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountRestOFfghde))
+	addOnePrams = append(addOnePrams, newUint(customerCountRestOFde))
+	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestOFde))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestOFde))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountRestOFde))
+	addOnePrams = append(addOnePrams, newUint(customerCountRestOF))
+	addOnePrams = append(addOnePrams, newUint(totalCustomerCountRestOF))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountForCustomerRestOF))
+	addOnePrams = append(addOnePrams, newUint(totalTableCountRestOF))
 
 	for i := 0; i < epoch; i++ {
 		hpylm.AddCustomer(word, u, float64(base), hpylm.addCustomerBaseNull)
@@ -79,31 +79,31 @@ func TestHPYLM(t *testing.T) {
 			t.Error("probsAddMany[i] = ", probsAddMany[i], "probsAddOne[i] = ", probsAddOne[i], "i = ", i)
 		}
 	}
-	customerCountRestISfghde = hpylm.restaurants["fgh<concat>de"].customerCount["abc"]
-	totalCustomerCountRestISfghde = hpylm.restaurants["fgh<concat>de"].totalCustomerCount
-	totalTableCountForCustomerRestISfghde = hpylm.restaurants["fgh<concat>de"].totalTableCountForCustomer["abc"]
-	totalTableCountRestISfghde = hpylm.restaurants["fgh<concat>de"].totalTableCount
-	customerCountRestISde = hpylm.restaurants["de"].customerCount["abc"]
-	totalCustomerCountRestISde = hpylm.restaurants["de"].totalCustomerCount
-	totalTableCountForCustomerRestISde = hpylm.restaurants["de"].totalTableCountForCustomer["abc"]
-	totalTableCountRestISde = hpylm.restaurants["de"].totalTableCount
-	customerCountRestIS = hpylm.restaurants[""].customerCount["abc"]
-	totalCustomerCountRestIS = hpylm.restaurants[""].totalCustomerCount
-	totalTableCountForCustomerRestIS = hpylm.restaurants[""].totalTableCountForCustomer["abc"]
-	totalTableCountRestIS = hpylm.restaurants[""].totalTableCount
+	customerCountRestOFfghde = hpylm.restaurants["fgh<concat>de"].customerCount["abc"]
+	totalCustomerCountRestOFfghde = hpylm.restaurants["fgh<concat>de"].totalCustomerCount
+	totalTableCountForCustomerRestOFfghde = hpylm.restaurants["fgh<concat>de"].totalTableCountForCustomer["abc"]
+	totalTableCountRestOFfghde = hpylm.restaurants["fgh<concat>de"].totalTableCount
+	customerCountRestOFde = hpylm.restaurants["de"].customerCount["abc"]
+	totalCustomerCountRestOFde = hpylm.restaurants["de"].totalCustomerCount
+	totalTableCountForCustomerRestOFde = hpylm.restaurants["de"].totalTableCountForCustomer["abc"]
+	totalTableCountRestOFde = hpylm.restaurants["de"].totalTableCount
+	customerCountRestOF = hpylm.restaurants[""].customerCount["abc"]
+	totalCustomerCountRestOF = hpylm.restaurants[""].totalCustomerCount
+	totalTableCountForCustomerRestOF = hpylm.restaurants[""].totalTableCountForCustomer["abc"]
+	totalTableCountRestOF = hpylm.restaurants[""].totalTableCount
 	addManyPrams := make([]newUint, 0, 0)
-	addManyPrams = append(addManyPrams, newUint(customerCountRestISfghde))
-	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestISfghde))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestISfghde))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountRestISfghde))
-	addManyPrams = append(addManyPrams, newUint(customerCountRestISde))
-	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestISde))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestISde))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountRestISde))
-	addManyPrams = append(addManyPrams, newUint(customerCountRestIS))
-	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestIS))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestIS))
-	addManyPrams = append(addManyPrams, newUint(totalTableCountRestIS))
+	addManyPrams = append(addManyPrams, newUint(customerCountRestOFfghde))
+	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestOFfghde))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestOFfghde))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountRestOFfghde))
+	addManyPrams = append(addManyPrams, newUint(customerCountRestOFde))
+	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestOFde))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestOFde))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountRestOFde))
+	addManyPrams = append(addManyPrams, newUint(customerCountRestOF))
+	addManyPrams = append(addManyPrams, newUint(totalCustomerCountRestOF))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountForCustomerRestOF))
+	addManyPrams = append(addManyPrams, newUint(totalTableCountRestOF))
 	for i := 0; i < len(addOnePrams); i++ {
 		if !(addManyPrams[i] >= addOnePrams[i]) {
 			t.Error("addManyPrams[i] = ", addManyPrams[i], "addOnePrams[i] = ", addOnePrams[i], "i = ", i)
@@ -131,5 +131,39 @@ func TestHPYLM(t *testing.T) {
 
 	if !(len(hpylm.restaurants) == 0) {
 		t.Error("hpylm.restaurants = ", hpylm.restaurants)
+	}
+}
+
+func TestPerformanceOfHPYLM(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	var theta float64
+	var d float64
+	var base float64
+	var epoch int
+	var maxN int
+	maxN = 3
+	base = float64(1.0 / 2097152.0) // 1 / 2^21 , size of character vocabulary in utf-8 encodeing
+	theta = 1.0
+	d = 0.1
+	epoch = 10
+	var hpylm LmModel
+	hpylm = NewHPYLM(maxN-1, theta, d, 1.0, 1.0, 1.0, 1.0, base)
+
+	var interporationRates []float64
+	interporationRates = []float64{0.1, 0.1, 0.1}
+	var interporatedNgram LmModel
+	interporatedNgram = NewNgram(maxN, interporationRates, base)
+
+	dataContainerForTrain := NewDataContainerFromAnnotatedData("../alice.train.txt")
+	dataContainerForTest := NewDataContainerFromAnnotatedData("../alice.test.txt")
+	for e := 0; e < epoch; e++ {
+		hpylm.Train(dataContainerForTrain)
+	}
+	interporatedNgram.Train(dataContainerForTrain)
+
+	perplexityOfHpylm := CalcPerplexity(hpylm, dataContainerForTest)
+	perplexityOfInterporatedNgram := CalcPerplexity(interporatedNgram, dataContainerForTest)
+	if !(perplexityOfHpylm < perplexityOfInterporatedNgram) {
+		t.Error("probably error! a perplexity of HPYLM is expected to be lower than a perplexity of interporated n-gram. ", "perplexityOfHpylm = ", perplexityOfHpylm, "perplexityOfInterporatedNgram = ", perplexityOfInterporatedNgram)
 	}
 }

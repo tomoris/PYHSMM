@@ -9,12 +9,6 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-const concat = "<concat>"
-
-type newUint uint32
-
-type context []string
-
 type table newUint // number of customer (input word) in the table
 
 type restaurant struct {
@@ -413,4 +407,48 @@ func (hpylm *HPYLM) estimateHyperPrameters() {
 		}
 	}
 	return
+}
+
+// Train train n-gram parameters from given word sequences.
+func (hpylm *HPYLM) Train(dataContainer *DataContainer) {
+	removeFlag := true
+	if len(hpylm.restaurants) == 0 { // epoch == 0
+		removeFlag = false
+	}
+	for i := 0; i < dataContainer.Size; i++ {
+		wordSeq := dataContainer.SamplingWordSeqs[i]
+		if removeFlag {
+			u := make(context, 0, hpylm.maxDepth)
+			for n := 0; n < hpylm.maxDepth; n++ {
+				u = append(u, bos)
+			}
+			for _, word := range wordSeq {
+				hpylm.RemoveCustomer(word, u, hpylm.removeCustomerBaseNull)
+				u = append(u[1:], word)
+			}
+		}
+		u := make(context, 0, hpylm.maxDepth)
+		for n := 0; n < hpylm.maxDepth; n++ {
+			u = append(u, bos)
+		}
+		for _, word := range wordSeq {
+			hpylm.AddCustomer(word, u, hpylm.Base, hpylm.addCustomerBaseNull)
+			u = append(u[1:], word)
+		}
+	}
+	hpylm.estimateHyperPrameters()
+	return
+}
+
+// ReturnNgramProb returns n-gram probability.
+// This is used for interface of LmModel.
+func (hpylm *HPYLM) ReturnNgramProb(word string, u context) float64 {
+	p, _ := hpylm.CalcProb(word, u, hpylm.Base)
+	return p
+}
+
+// ReturnMaxN returns maximum length of n-gram.
+// This is used for interface of LmModel.
+func (hpylm *HPYLM) ReturnMaxN() int {
+	return hpylm.maxDepth + 1
 }

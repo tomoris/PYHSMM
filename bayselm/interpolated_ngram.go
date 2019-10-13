@@ -2,7 +2,6 @@ package bayselm
 
 import (
 	"fmt"
-	"math"
 	"strings"
 )
 
@@ -13,30 +12,39 @@ type Ngram struct {
 
 	maxN               int
 	interporationRates []float64
-	base               float64
-	bos                string
+	Base               float64
 }
 
 // NewNgram returns new Ngram instance.
 func NewNgram(maxN int, interporationRates []float64, base float64) *Ngram {
 	ngram := new(Ngram)
+	ngram.maxN = maxN
 	ngram.contextToWordCounts = make(map[string]map[string]int)
 	ngram.contextToCount = make(map[string]int)
-	ngram.interporationRates = make([]float64, 0, maxN)
-	ngram.maxN = maxN
+	ngram.interporationRates = make([]float64, ngram.maxN, ngram.maxN)
+	if ngram.maxN <= 0 {
+		panic("range of maxN is range 0.0 to inf")
+	}
 	if !(len(interporationRates) == ngram.maxN) {
 		panic("length of interporationRates does not match maxN")
 	}
 	for i := 0; i < ngram.maxN; i++ {
+		if !(0.0 < interporationRates[i] && interporationRates[i] < 1.0) {
+			panic("range of interporationRates is range 0.0 to 1.0")
+		}
 		ngram.interporationRates[i] = interporationRates[i]
 	}
 
-	ngram.bos = "<BOS>"
+	ngram.Base = base
 	return ngram
 }
 
 // AddCount add word count and context count when n-gram is given.
 func (ngram *Ngram) AddCount(word string, u context) {
+	if len(u) > ngram.maxN-1 {
+		errMsg := fmt.Sprintf("AddCount error. ngram (word = %v, context = %v) is longer than maxN (%v)", word, u, ngram.maxN)
+		panic(errMsg)
+	}
 	_, ok := ngram.contextToCount[strings.Join(u, concat)]
 	if !ok {
 		ngram.contextToCount[strings.Join(u, concat)] = 0
@@ -83,7 +91,7 @@ func (ngram *Ngram) CalcProb(word string, u context) float64 {
 	lambda := ngram.interporationRates[len(u)]
 	smoothing := 0.0
 	if len(u) == 0 {
-		smoothing = ngram.base
+		smoothing = ngram.Base
 	} else {
 		smoothing = ngram.CalcProb(word, u[1:])
 	}
@@ -91,13 +99,13 @@ func (ngram *Ngram) CalcProb(word string, u context) float64 {
 	return p
 }
 
-// TrainFromWordSeq train n-gram parameters from given word sequences.
-func (ngram *Ngram) TrainFromWordSeq(dataContainer *DataContainer) {
+// Train train n-gram parameters from given word sequences.
+func (ngram *Ngram) Train(dataContainer *DataContainer) {
 	for i := 0; i < dataContainer.Size; i++ {
 		wordSeq := dataContainer.SamplingWordSeqs[i]
 		u := make(context, 0, ngram.maxN-1)
 		for n := 0; n < ngram.maxN-1; n++ {
-			u = append(u, ngram.bos)
+			u = append(u, bos)
 		}
 		for _, word := range wordSeq {
 			ngram.AddCount(word, u)
@@ -107,20 +115,15 @@ func (ngram *Ngram) TrainFromWordSeq(dataContainer *DataContainer) {
 	return
 }
 
-// CalcPerplexity returns perplexity from input word sequence
-func (ngram *Ngram) CalcPerplexity(wordSeq context) float64 {
-	entropy := float64(0.0)
-	u := make(context, 0, ngram.maxN-1)
-	for n := 0; n < ngram.maxN-1; n++ {
-		u = append(u, ngram.bos)
-	}
-	for _, word := range wordSeq {
-		p := ngram.CalcProb(word, u)
-		entropy += math.Log2(p)
-		u = append(u[1:], word)
-	}
-	entropy *= -1
-	entropy /= float64(len(wordSeq))
-	perplexity := math.Exp2(entropy)
-	return perplexity
+// ReturnNgramProb returns n-gram probability.
+// This is used for interface of LmModel.
+func (ngram *Ngram) ReturnNgramProb(word string, u context) float64 {
+	p := ngram.CalcProb(word, u)
+	return p
+}
+
+// ReturnMaxN returns maximum length of n-gram.
+// This is used for interface of LmModel.
+func (ngram *Ngram) ReturnMaxN() int {
+	return ngram.maxN
 }
