@@ -1,86 +1,87 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"math/rand"
+	"os"
 	"runtime"
 	"time"
 
 	"github.com/tomoris/PYHSMM/bayselm"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
-	var (
-		flagRawFilePath = flag.String("rawTexts", "", "training file path")
-		// flagSegmentedFilePath = flag.String("segmentedTexts", "alice.txt", "training file path")
-		flagEpoch = flag.Int("epoch", 1, "epoch size")
+var (
+	args = kingpin.New("bayselm", "Baysian n-gram language model.")
 
-		flagInitialTheta  = flag.Float64("theta", 2.0, "initial hyper-parameter in NPYLM")
-		flagInitialD      = flag.Float64("d", 0.1, "initial hyper-parameter in NPYLM")
-		flagGammaA        = flag.Float64("gammaA", 1.0, "hyper-parameter in NPYLM")
-		flagGammaB        = flag.Float64("gammaB", 1.0, "hyper-parameter in NPYLM")
-		flagBetaA         = flag.Float64("betaA", 1.0, "hyper-parameter in NPYLM")
-		flagBetaB         = flag.Float64("betaB", 1.0, "hyper-parameter in NPYLM")
-		flagAlpha         = flag.Float64("alpha", 1.0, "hyper-parameter in NPYLM")
-		flagBeta          = flag.Float64("beta", 1.0, "hyper-parameter in NPYLM")
-		flagMaxNgram      = flag.Int("ngram", 2, "number of maximum n-gram")
-		flagMaxWordLength = flag.Int("length", 15, "number of maximum word length")
-		flagPosSize       = flag.Int("posSize", 10, "size of part-of-speech tags")
-		flagThreads       = flag.Int("threads", 8, "number of threads")
-		flagBatch         = flag.Int("batch", 32, "batch size")
-	)
-	flag.Parse()
+	lm                 = args.Command("lm", "training language model from segmented texts")
+	modelForLM         = lm.Flag("model", "n-gram model").Required().Enum("ngram", "hpylm", "vpylm", "npylm", "pyhsmm")
+	trainFilePathForLM = lm.Flag("trainFile", "training file path. the texts are segmented space.").Required().String()
+	testFilePathForLM  = lm.Flag("testFile", "test file path. the texts are segmented space.").Required().String()
 
-	runtime.GOMAXPROCS(*flagThreads)
-	fmt.Println("Building model")
-	// npylm := bayselm.NewNPYLM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength)
-	pyhsmm := bayselm.NewPYHSMM(*flagInitialTheta, *flagInitialD, *flagGammaA, *flagGammaB, *flagBetaA, *flagBetaB, *flagAlpha, *flagBeta, *flagMaxNgram, *flagMaxWordLength, *flagPosSize)
-	fmt.Println("Loading data and initialize model")
-	dataContainer := bayselm.NewDataContainer(*flagRawFilePath)
-	// npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs)
-	pyhsmm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs, dataContainer.SamplingPosSeqs)
-	// dataContainer := NPYLM.NewDataContainerFromAnnotatedData(*flagSegmentedFilePath)
-	// npylm.InitializeFromAnnotatedData(dataContainer.Sents, dataContainer.SamplingWordSeqs)
-	// npylm.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs, dataContainer.SamplingPosSeqs)
-	// dataContainer := NPYLM.NewDataContainerFromAnnotatedData(*flagFilePath)
-	// for i := 0; i < dataContainer.Size; i++ {
-	// 	for j, word := range dataContainer.SamplingWordSeqs[i] {
-	// 		runeWord := []rune(word)
-	// 		if len(runeWord) >= *flagMaxWordLength {
-	// 			wordSegment := make([]string, 0, len(runeWord))
-	// 			for _, char := range runeWord {
-	// 				wordSegment = append(wordSegment, string(char))
-	// 			}
-	// 			tmpSamplingWordSeq := dataContainer.SamplingWordSeqs[i][j+1:]
-	// 			dataContainer.SamplingWordSeqs[i] = append(dataContainer.SamplingWordSeqs[i][:j], wordSegment...)
-	// 			dataContainer.SamplingWordSeqs[i] = append(dataContainer.SamplingWordSeqs[i], tmpSamplingWordSeq...)
-	// 			fmt.Println("adjust", dataContainer.SamplingWordSeqs[i])
-	// 		}
-	// 	}
-	// 	npylm.AddWordSeqAsCustomer(dataContainer.SamplingWordSeqs[i])
-	// }
-	// for epoch := 0; epoch < 10; epoch++ {
-	// 	npylm.AddWordSeqAsCustomer([]string{"これ", "は", "ペン", "です", "。"})
-	// }
+	ws                 = args.Command("ws", "training word segmentation from unsegmented texts")
+	modelForWS         = ws.Flag("model", "unsupervised word segmentation model").Required().Enum("npylm", "pyhsmm")
+	trainFilePathForWS = ws.Flag("trainFile", "training file path. the texts are unsegmented.").Required().String()
 
-	// for i := 0 ; i < dataContainer.Size; i ++ {
-	// 	sent := dataContainer.Sents[i]
-	// 	fmt.Println(strings.Join(npylm.Test(sent), " "))
+	maxNgram      = args.Flag("maxNgram", "hyper-parameter in HPYLM - PYHSMM").Default("2").Int()
+	initialTheta  = args.Flag("theta", "initial hyper-parameter in HPYLM - PYHSMM").Default("2.0").Float64()
+	initialD      = args.Flag("d", "initial hyper-parameter in HPYLM - PYHSMM").Default("0.1").Float64()
+	gammaA        = args.Flag("gammaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
+	gammaB        = args.Flag("gammaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
+	betaA         = args.Flag("betaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
+	betaB         = args.Flag("betaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
+	vocabSize     = args.Flag("vocabSize", "hyper-parameter in HPYLM - VPYLM").Default("2097152.0").Float64()
+	alpha         = args.Flag("alpha", "hyper-parameter in VPYLM - PYHSMM").Default("1.0").Float64()
+	beta          = args.Flag("beta", "hyper-parameter in VPYLM - PYHSMM").Default("1.0").Float64()
+	maxWordLength = args.Flag("maxWordLength", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
+	posSize       = args.Flag("posSize", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
+	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("128").Int()
+	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("128").Int()
+	threads       = args.Flag("threads", "hyper-parameter in NPYLM - PYHSMM").Default("8").Int()
+)
+
+func trainLanguageModel() {
+	model, ok := bayselm.GenerateNgramLM(*modelForLM, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize)
+	if !ok {
+		panic("Building model error")
+	}
+	dataContainerForTrain := bayselm.NewDataContainerFromAnnotatedData(*trainFilePathForLM)
+	dataContainerForTest := bayselm.NewDataContainerFromAnnotatedData(*testFilePathForLM)
+	for e := 0; e < *epoch; e++ {
+		model.Train(dataContainerForTrain)
+	}
+	perplexity := bayselm.CalcPerplexity(model, dataContainerForTest)
+	fmt.Println("Perplexity = ", perplexity)
+	return
+}
+
+func trainWordSegmentation() {
+	runtime.GOMAXPROCS(*threads)
+	// model, ok := bayselm.GenerateNgramLM(*modelForLM, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize)
+	// if !ok {
+	// 	panic("Building model error")
 	// }
-	// defer profile.Start(profile.ProfilePath(".")).Stop()
-	fmt.Println("Training model")
-	for epoch := 0; epoch < *flagEpoch; epoch++ {
-		// fmt.Println("prev", dataContainer.SamplingWordSeqs[0])
-		// npylm.TrainWordSegmentation(dataContainer, *flagThreads, *flagBatch)
-		pyhsmm.TrainWordSegmentationAndPOSTagging(dataContainer, *flagThreads, *flagBatch)
+	model := bayselm.NewNPYLM(*initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength) //, *posSize)
+	dataContainer := bayselm.NewDataContainer(*trainFilePathForWS)
+	model.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs) // , dataContainer.SamplingPosSeqs)
+	for e := 0; e < *epoch; e++ {
+		model.TrainWordSegmentation(dataContainer, *threads, *batch)
 		testSize := 50
-		// wordSeqs := npylm.TestWordSegmentation(dataContainer.Sents[:testSize], *flagThreads)
-		wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(dataContainer.Sents[:testSize], *flagThreads)
+		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], *threads)
 		for i := 0; i < testSize; i++ {
 			fmt.Println("test", wordSeqs[i])
 		}
 	}
+	return
+}
 
+func main() {
+	rand.Seed(time.Now().UnixNano())
+	switch kingpin.MustParse(args.Parse(os.Args[1:])) {
+	case lm.FullCommand():
+		trainLanguageModel()
+	case ws.FullCommand():
+		trainWordSegmentation()
+	}
+	return
 }

@@ -3,6 +3,8 @@ package bayselm
 import (
 	"math/rand"
 	"strings"
+
+	"github.com/cheggaaa/pb/v3"
 )
 
 // VPYLM contains n-gram parameters as restaurants in HPYLM instance.
@@ -109,8 +111,10 @@ func (vpylm *VPYLM) Train(dataContainer *DataContainer) {
 	if len(vpylm.hpylm.restaurants) == 0 { // epoch == 0
 		removeFlag = false
 	}
+	bar := pb.StartNew(dataContainer.Size)
 	randIndexes := rand.Perm(dataContainer.Size)
 	for i := 0; i < dataContainer.Size; i++ {
+		bar.Add(1)
 		r := randIndexes[i]
 		wordSeq := dataContainer.SamplingWordSeqs[r]
 		if removeFlag {
@@ -135,6 +139,7 @@ func (vpylm *VPYLM) Train(dataContainer *DataContainer) {
 		}
 		dataContainer.SamplingDepthMemories[r] = sampledDepthMemory
 	}
+	bar.Finish()
 	vpylm.hpylm.estimateHyperPrameters()
 	return
 }

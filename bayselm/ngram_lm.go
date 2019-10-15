@@ -16,6 +16,34 @@ type NgramLM interface {
 	ReturnMaxN() int
 }
 
+// GenerateNgramLM returns NgramLM instance.
+func GenerateNgramLM(modelName string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int, base float64) (NgramLM, bool) {
+	var model NgramLM
+	ok := false
+	switch modelName {
+	case "ngram":
+		var interporationRates []float64
+		for i := 0; i < maxNgram; i++ {
+			interporationRates = append(interporationRates, 0.1)
+		}
+		model = NewNgram(maxNgram, interporationRates, base)
+		ok = true
+	case "hpylm":
+		model = NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base)
+		ok = true
+	case "vpylm":
+		model = NewVPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base, alpha, beta)
+		ok = true
+	case "npylm":
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		ok = true
+	case "pyhsmm":
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		ok = true
+	}
+	return model, ok
+}
+
 // CalcPerplexity returns perplexity from input word sequence
 func CalcPerplexity(model NgramLM, dataContainer *DataContainer) float64 {
 	entropy := float64(0.0)

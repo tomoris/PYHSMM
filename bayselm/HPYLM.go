@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"strings"
 
+	"github.com/cheggaaa/pb/v3"
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
@@ -415,8 +416,10 @@ func (hpylm *HPYLM) Train(dataContainer *DataContainer) {
 	if len(hpylm.restaurants) == 0 { // epoch == 0
 		removeFlag = false
 	}
+	bar := pb.StartNew(dataContainer.Size)
 	randIndexes := rand.Perm(dataContainer.Size)
 	for i := 0; i < dataContainer.Size; i++ {
+		bar.Add(1)
 		r := randIndexes[i]
 		wordSeq := dataContainer.SamplingWordSeqs[r]
 		if removeFlag {
@@ -438,6 +441,7 @@ func (hpylm *HPYLM) Train(dataContainer *DataContainer) {
 			u = append(u[1:], word)
 		}
 	}
+	bar.Finish()
 	hpylm.estimateHyperPrameters()
 	return
 }

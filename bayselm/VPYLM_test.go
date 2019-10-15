@@ -108,7 +108,7 @@ func TestPerformanceOfVPYLM(t *testing.T) {
 	base = float64(1.0 / 2097152.0) // 1 / 2^21 , size of character vocabulary in utf-8 encodeing
 	theta = 1.0
 	d = 0.1
-	epoch = 2000
+	epoch = 100
 	var hpylm NgramLM
 	hpylm = NewHPYLM(maxN-1, theta, d, 1.0, 1.0, 1.0, 1.0, base)
 	var vpylm NgramLM

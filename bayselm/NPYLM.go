@@ -115,10 +115,10 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 func (npylm *NPYLM) calcBase(word string) float64 {
 	p := float64(1.0)
 	runeWord := []rune(word)
-	if len(runeWord) > npylm.maxWordLength {
-		errMsg := fmt.Sprintf("calcBase error. length of word (%v) is longer than npylm.maxWordLength (%v)", word, npylm.maxWordLength)
-		panic(errMsg)
-	}
+	// if len(runeWord) > npylm.maxWordLength {
+	// 	errMsg := fmt.Sprintf("calcBase error. length of word (%v) is longer than npylm.maxWordLength (%v)", word, npylm.maxWordLength)
+	// 	panic(errMsg)
+	// }
 	uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
 	for i := 0; i < npylm.maxWordLength; i++ {
 		uChar = append(uChar, npylm.bow)
@@ -133,7 +133,9 @@ func (npylm *NPYLM) calcBase(word string) float64 {
 	p *= pTmpMixed
 
 	// poisson correction
-	p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
+	if len(runeWord) <= npylm.maxWordLength {
+		p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
+	}
 	return p
 }
 
@@ -274,10 +276,12 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 		if prevWord != npylm.eos {
 			base = npylm.calcBase(prevWord)
 		}
-		scoreArray := make([]float64, npylm.maxWordLength, npylm.maxWordLength)
-		maxScore := float64(math.Inf(-1))
+		scoreArrayLog := make([]float64, npylm.maxWordLength, npylm.maxWordLength)
+		for j := 0; j < npylm.maxWordLength; j++ {
+			scoreArrayLog[j] = math.Inf(-1)
+		}
+		maxScore := math.Inf(-1)
 		maxJ := -1
-		sumScore := float64(0.0)
 		for j := 0; j < npylm.maxWordLength; j++ {
 			if t-k-(j+1) >= 0 {
 				u[0] = string(sent[(t - k - (j + 1)):(t - k)])
@@ -287,19 +291,19 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 					maxScore = score
 					maxJ = j
 				}
-				score = float64(math.Exp(float64(score)))
-				scoreArray[j] = score
-				sumScore += score
+				scoreArrayLog[j] = score
 			} else {
-				scoreArray[j] = 0.0 // float64(math.Exp(math.Inf(-1)))
+				// scoreArray[j] = math.Inf(-1)
 			}
 		}
+		logSumScoreArrayLog := npylm.logsumexp(scoreArrayLog)
 		j := 0
 		if sampling {
-			r := float64(rand.Float64()) * sumScore
-			sumScore = 0.0
+			r := float64(rand.Float64())
+			sumScore := 0.0
 			for {
-				sumScore += scoreArray[j]
+				score := math.Exp(scoreArrayLog[j] - logSumScoreArrayLog)
+				sumScore += score
 				if sumScore > r {
 					break
 				}
@@ -414,6 +418,10 @@ func (npylm *NPYLM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSeqs
 }
 
 func (npylm *NPYLM) poissonCorrection() {
+	_, ok := npylm.restaurants[""]
+	if !ok {
+		return
+	}
 	a := float64(1.0)
 	b := float64(1.0)
 	for word, totalTableCount := range npylm.restaurants[""].totalTableCountForCustomer {
@@ -491,8 +499,10 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer) {
 	if len(npylm.vpylm.hpylm.restaurants) == 0 { // epoch == 0
 		removeFlag = false
 	}
+	bar := pb.StartNew(dataContainer.Size)
 	randIndexes := rand.Perm(dataContainer.Size)
 	for i := 0; i < dataContainer.Size; i++ {
+		bar.Add(1)
 		r := randIndexes[i]
 		wordSeq := dataContainer.SamplingWordSeqs[r]
 		if removeFlag {
@@ -500,6 +510,7 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer) {
 		}
 		npylm.addWordSeqAsCustomer(wordSeq)
 	}
+	bar.Finish()
 	npylm.poissonCorrection()
 	npylm.estimateHyperPrameters()
 	npylm.vpylm.hpylm.estimateHyperPrameters()
