@@ -69,11 +69,11 @@ func (npylm *NPYLM) addCustomerBase(word string) {
 		sampledDepth := npylm.vpylm.AddCustomer(npylm.eow, uChar)
 		sampledDepthMemory[len(runeWord)] = sampledDepth
 
-		sampledDepthMemories, ok := npylm.word2sampledDepthMemory[word]
+		_, ok := npylm.word2sampledDepthMemory[word]
 		if !ok {
 			npylm.word2sampledDepthMemory[word] = [][]int{sampledDepthMemory}
 		} else {
-			sampledDepthMemories = append(sampledDepthMemories, sampledDepthMemory)
+			npylm.word2sampledDepthMemory[word] = append(npylm.word2sampledDepthMemory[word], sampledDepthMemory)
 		}
 
 	}
@@ -83,16 +83,16 @@ func (npylm *NPYLM) addCustomerBase(word string) {
 func (npylm *NPYLM) removeCustomerBase(word string) {
 	if word != npylm.bos && word != npylm.eos {
 		runeWord := []rune(word)
-		sampledDepthMemoies, ok := npylm.word2sampledDepthMemory[word]
+		sampledDepthMemories, ok := npylm.word2sampledDepthMemory[word]
 		if !ok {
 			errMsg := fmt.Sprintf("removeCustomerBase error. sampledDepthMemories of word (%v) does not exist", word)
 			panic(errMsg)
 		}
-		if len(sampledDepthMemoies) == 0 {
+		if len(sampledDepthMemories) == 0 {
 			errMsg := fmt.Sprintf("removeCustomerBase error. sampledDepthMemory of word (%v) does not exist", word)
 			panic(errMsg)
 		}
-		sampledDepthMemory := sampledDepthMemoies[0]
+		sampledDepthMemory := sampledDepthMemories[0]
 		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
 		for i := 0; i < npylm.maxWordLength; i++ {
 			uChar = append(uChar, npylm.bow)
@@ -104,8 +104,8 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 		}
 		npylm.vpylm.RemoveCustomer(npylm.eow, uChar, sampledDepthMemory[len(runeWord)])
 
-		sampledDepthMemoies = sampledDepthMemoies[1:]
-		if len(sampledDepthMemoies) == 0 {
+		npylm.word2sampledDepthMemory[word] = sampledDepthMemories[1:]
+		if len(npylm.word2sampledDepthMemory[word]) == 0 {
 			delete(npylm.word2sampledDepthMemory, word)
 		}
 	}

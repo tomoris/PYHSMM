@@ -1,7 +1,7 @@
 # PYHSMM with golang
 Implementation of Pitman-Yor Hidden Semi-Markov Model (PYSHMM) (Uchiumi et al., 2015) with golang. PYHSMM is a non-parametric Bayesian model for inducing words and part-of-speech tags from unsegmented texts without annotated data.
 
-This repository also contain other Bayesian n-gram based language model such as HPYLM, and NPYLM.
+This repository also contain other Bayesian n-gram based language models such as HPYLM, and NPYLM.
 
 ## Prerequisites
 ```
@@ -19,9 +19,14 @@ go build main.go
 
 ## Usage
 Training language model.  
-`./main lm --model hpylm --maxNgram 2 --trainFile alice.train.txt --testFile alice.test.txt`  
-Training word segmentation without labeled data.  
-`./main ws --model npylm --maxNgram 2 --trainFile alice.raw`  
+`./main lm --model hpylm --maxNgram 2 --trainFile data/alice.train.txt --testFile alice.test.txt`  
+Training word segmentation model without labeled data.  
+`./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw`  
+or
+```
+go build -o trainWordSegmentation.so -buildmode=c-shared main.go
+python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw
+```
 
 
 ### model
@@ -30,13 +35,13 @@ ngram: Interporated n-gram model
 hpylm: Hierarchical Pitman-Yor Language Model
 vpylm: Variable order HPYLM
 npylm: Nested Pitman-Yor Language Model (unsupervised word segmentation model)
-pyhsmm: Pitman-Yor Hidden SemiMarkov Model (unsupervised word segmentation and POS induction model
+pyhsmm: Pitman-Yor Hidden SemiMarkov Model (unsupervised word segmentation and POS induction model)
 ```
 
 ## Evaluation
 
 ### Language Model
-We evaluated the language model of them on BCCWJ. The definition of words is super short word unit. Size of training sentences is 57,281. Size of test sentences is 3,024. We note that npylm and pyhsmm were smoothed by charcter level language model. It means unfair comparison but we show the results.
+We evaluated the language models of them on BCCWJ. The definition of words is super short word unit. Size of training sentences is 57,281. Size of test sentences is 3,024. We note that npylm and pyhsmm were smoothed by charcter level language model. It means unfair comparison but we show the results.
 
 |Model   |perplexty   |n   |number of POS tags   |
 |:---:   |---:        |---:|---:|

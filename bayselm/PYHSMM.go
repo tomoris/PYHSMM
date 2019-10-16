@@ -88,12 +88,11 @@ func (pyhsmm *PYHSMM) TrainWordSegmentationAndPOSTagging(dataContainer *DataCont
 		}
 	}
 	bar.Finish()
+
+	pyhsmm.npylms[0].poissonCorrection()
+	pyhsmm.npylms[0].vpylm.hpylm.estimateHyperPrameters()
 	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
 		pyhsmm.npylms[pos].estimateHyperPrameters()
-		if pos != pyhsmm.eosPos {
-			pyhsmm.npylms[pos].poissonCorrection()
-			pyhsmm.npylms[pos].vpylm.hpylm.estimateHyperPrameters()
-		}
 	}
 	pyhsmm.posHpylm.estimateHyperPrameters()
 	return
@@ -146,7 +145,8 @@ func (pyhsmm *PYHSMM) forwardForSamplingPosOnly(goldWordSeq context) [][]float64
 				u[0] = pyhsmm.bos
 			} else {
 			}
-			base = pyhsmm.npylms[pos].calcBase(word)
+			// base = pyhsmm.npylms[pos].calcBase(word)
+			base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 			p, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
 			if t == 0 {
 				uPos[0] = string(pyhsmm.bosPos)
@@ -192,12 +192,13 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 	base := float64(0.0)
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
+			base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
 				if t-k >= 0 {
 					word = string(sent[(t - k) : t+1])
 					u[0] = pyhsmm.bos
 					uPos[0] = string(pyhsmm.bosPos)
-					base = pyhsmm.npylms[pos].calcBase(word)
+					// base = pyhsmm.npylms[pos].calcBase(word)
 					if t-k == 0 {
 						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
 						posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
@@ -259,7 +260,7 @@ func (pyhsmm *PYHSMM) backwardPosOnly(forwardScore [][]float64, sampling bool, g
 			break
 		}
 		if prevWord != pyhsmm.eos {
-			base = pyhsmm.npylms[prevPos].calcBase(prevWord)
+			base = pyhsmm.npylms[0].calcBase(prevWord) // 文字レベルのスムージングは一つのVPYLMから
 		}
 		scoreArrayLog := make([]float64, pyhsmm.PosSize, pyhsmm.PosSize)
 		for i := 0; i < pyhsmm.PosSize; i++ {
@@ -330,7 +331,7 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 			break
 		}
 		if prevWord != pyhsmm.eos {
-			base = pyhsmm.npylms[prevPos].calcBase(prevWord)
+			base = pyhsmm.npylms[0].calcBase(prevWord) // 文字レベルのスムージングは一つのVPYLMから
 		}
 		scoreArrayLog := make([]float64, pyhsmm.maxWordLength*pyhsmm.PosSize, pyhsmm.maxWordLength*pyhsmm.PosSize)
 		for i := 0; i < pyhsmm.maxWordLength*pyhsmm.PosSize; i++ {
@@ -413,7 +414,8 @@ func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	base := float64(0.0)
 	for i, word := range wordSeq {
 		pos := posSeq[i]
-		base = pyhsmm.npylms[pos].calcBase(word)
+		// base = pyhsmm.npylms[pos].calcBase(word)
+		base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 		if i == 0 {
 			u[0] = pyhsmm.bos
 			uPos[0] = string(pyhsmm.bosPos)
@@ -421,13 +423,15 @@ func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 			u[0] = wordSeq[i-1]
 			u[0] = string(posSeq[i-1])
 		}
-		pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[pos].addCustomerBase)
+		// pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[pos].addCustomerBase)
+		pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[0].addCustomerBase) // 文字レベルのスムージングは一つのVPYLMに追加
 		pyhsmm.posHpylm.AddCustomer(string(pos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
-	base = pyhsmm.npylms[pyhsmm.eosPos].vpylm.hpylm.Base
-	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[pyhsmm.eosPos].addCustomerBase)
+	// base = pyhsmm.npylms[pyhsmm.eosPos].vpylm.hpylm.Base
+	base = pyhsmm.npylms[0].vpylm.hpylm.Base
+	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[0].addCustomerBase)
 	uPos[0] = string(posSeq[len(posSeq)-1])
 	pyhsmm.posHpylm.AddCustomer(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
 }
@@ -444,12 +448,12 @@ func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
 			u[0] = wordSeq[i-1]
 			u[0] = string(posSeq[i-1])
 		}
-		pyhsmm.npylms[pos].RemoveCustomer(word, u, pyhsmm.npylms[pos].removeCustomerBase)
+		pyhsmm.npylms[pos].RemoveCustomer(word, u, pyhsmm.npylms[0].removeCustomerBase)
 		pyhsmm.posHpylm.RemoveCustomer(string(pos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
-	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[pyhsmm.eosPos].removeCustomerBase)
+	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[0].removeCustomerBase)
 	uPos[0] = string(posSeq[len(posSeq)-1])
 	pyhsmm.posHpylm.RemoveCustomer(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
 }
@@ -539,12 +543,11 @@ func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
 		dataContainer.SamplingPosSeqs[r] = sampledPosSeq
 	}
 	bar.Finish()
+
+	pyhsmm.npylms[0].poissonCorrection()                  // 文字VPYLMは共通のものだけ
+	pyhsmm.npylms[0].vpylm.hpylm.estimateHyperPrameters() // 文字VPYLMは共通のものだけ
 	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
 		pyhsmm.npylms[pos].estimateHyperPrameters()
-		if pos != pyhsmm.eosPos {
-			pyhsmm.npylms[pos].poissonCorrection()
-			pyhsmm.npylms[pos].vpylm.hpylm.estimateHyperPrameters()
-		}
 	}
 	pyhsmm.posHpylm.estimateHyperPrameters()
 	return
@@ -552,15 +555,18 @@ func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
 
 // ReturnNgramProb returns n-gram probability.
 // This is used for interface of LmModel.
+// This func can not return correct probability if word is bos
 func (pyhsmm *PYHSMM) ReturnNgramProb(word string, u context) float64 {
 	p := 0.0
 	sumPpos := 0.0
-	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
-		base := pyhsmm.npylms[pos].calcBase(word)
+	base := pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+	uPos := context{""}
+	pPosBos, _ := pyhsmm.posHpylm.CalcProb(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base)
+	for pos := 0; pos < pyhsmm.PosSize; pos++ {
+		// base := pyhsmm.npylms[pos].calcBase(word)
 		pGivenPos, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-		uPos := context{""}
 		pPos, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
-		p += pGivenPos * pPos
+		p += pGivenPos * (pPos / (1.0 - pPosBos))
 		sumPpos += pPos
 	}
 	return p + math.SmallestNonzeroFloat64

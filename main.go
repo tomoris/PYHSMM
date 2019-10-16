@@ -1,6 +1,7 @@
 package main
 
 import (
+	"C"
 	"fmt"
 	"math/rand"
 	"os"
@@ -30,12 +31,12 @@ var (
 	gammaB        = args.Flag("gammaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	betaA         = args.Flag("betaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	betaB         = args.Flag("betaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
-	vocabSize     = args.Flag("vocabSize", "hyper-parameter in HPYLM - VPYLM").Default("2097152.0").Float64()
-	alpha         = args.Flag("alpha", "hyper-parameter in VPYLM - PYHSMM").Default("1.0").Float64()
-	beta          = args.Flag("beta", "hyper-parameter in VPYLM - PYHSMM").Default("1.0").Float64()
+	vocabSize     = args.Flag("vocabSize", "hyper-parameter in HPYLM - VPYLM (default parameter is size of character vocab. (utf-8))").Default("2097152.0").Float64()
+	alpha         = args.Flag("alpha", "hyper-parameter in VPYLM - PYHSMM (used sampling depth in VPYLM)").Default("1.0").Float64()
+	beta          = args.Flag("beta", "hyper-parameter in VPYLM - PYHSMM (used sampling depth in VPYLM)").Default("1.0").Float64()
 	maxWordLength = args.Flag("maxWordLength", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
 	posSize       = args.Flag("posSize", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
-	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("128").Int()
+	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("100").Int()
 	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("128").Int()
 	threads       = args.Flag("threads", "hyper-parameter in NPYLM - PYHSMM").Default("8").Int()
 )
@@ -55,18 +56,21 @@ func trainLanguageModel() {
 	return
 }
 
-func trainWordSegmentation() {
-	runtime.GOMAXPROCS(*threads)
-	model, ok := bayselm.GenerateUnsupervisedWSM(*modelForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize)
+//export trainWordSegmentation
+func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int) {
+	runtime.GOMAXPROCS(threads)
+	// rand.Seed(time.Now().UnixNano())
+	rand.Seed(1)
+	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base)
 	if !ok {
 		panic("Building model error")
 	}
-	dataContainer := bayselm.NewDataContainer(*trainFilePathForWS)
+	dataContainer := bayselm.NewDataContainer(trainFilePathForWS)
 	model.Initialize(dataContainer)
-	for e := 0; e < *epoch; e++ {
-		model.TrainWordSegmentation(dataContainer, *threads, *batch)
+	for e := 0; e < epoch; e++ {
+		model.TrainWordSegmentation(dataContainer, threads, batch)
 		testSize := 50
-		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], *threads)
+		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
 		for i := 0; i < testSize; i++ {
 			fmt.Println("test", wordSeqs[i])
 		}
@@ -80,7 +84,7 @@ func main() {
 	case lm.FullCommand():
 		trainLanguageModel()
 	case ws.FullCommand():
-		trainWordSegmentation()
+		trainWordSegmentation(*modelForWS, *trainFilePathForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize, *epoch, *threads, *batch)
 	}
 	return
 }

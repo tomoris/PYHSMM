@@ -107,13 +107,13 @@ func NewHPYLM(maxDepth int, initialTheta float64, initialD float64, gammaA float
 	if maxDepth <= 0 {
 		panic("range of maxDepth is 0 to 255")
 	}
-	if initialD < 0.0 || initialD > 1.0 {
+	if initialD <= 0.0 || initialD >= 1.0 {
 		panic("range of initialD is 0.0 to 1.0")
 	}
-	if initialTheta < 0.0 {
+	if initialTheta <= 0.0 {
 		panic("range of initialTheta is range 0.0 to inf")
 	}
-	if Base < 0.0 || Base > 1.0 {
+	if Base <= 0.0 || Base >= 1.0 {
 		panic("range of Base is 0.0 to 1.0")
 	}
 
@@ -172,7 +172,7 @@ func (hpylm *HPYLM) addCustomerRecursively(word string, u context, probs []float
 	sumScore := float64(0.0)
 	for k, tbl := range tbls {
 		score = float64(tbl) - (d * float64(rst.totalTableCountForCustomer[word]))
-		scoreArray[k] = float64(math.Max(0.0, float64(score)))
+		scoreArray[k] = math.Max(0.0, float64(score))
 		sumScore += scoreArray[k]
 	}
 	smoothingCoefficient := (theta + (d * float64(rst.totalTableCount))) / (theta + float64(rst.totalCustomerCount))
@@ -239,7 +239,7 @@ func (hpylm *HPYLM) RemoveCustomer(word string, u context, removeBaseFunc func(s
 	}
 
 	// sampling
-	r := float64(rand.Float64()) * sumScore
+	r := rand.Float64() * sumScore
 	sumScore = 0.0
 	k := newUint(0)
 	for {
