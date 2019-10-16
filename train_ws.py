@@ -64,12 +64,13 @@ if __name__ == '__main__':
         '--model',
         help='unsupervised word segmentation model',
         type=str,
-        choices=['npylm', 'pyhsmm'])
+        choices=['npylm', 'pyhsmm'],
+        required=True)
     parser.add_argument(
         '--train_file',
         help='training file path',
         type=str,
-        default=None)
+        required=True)
     parser.add_argument(
         '--maxNgram',
         help='hyper-parameter in HPYLM - PYHSMM',

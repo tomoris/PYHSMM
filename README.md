@@ -22,11 +22,10 @@ Training language model.
 `./main lm --model hpylm --maxNgram 2 --trainFile data/alice.train.txt --testFile alice.test.txt`  
 Training word segmentation model without labeled data.  
 `./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw`  
-or
-```
-go build -o trainWordSegmentation.so -buildmode=c-shared main.go
-python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw
-```
+or  
+`go build -o trainWordSegmentation.so -buildmode=c-shared main.go`  
+`python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw`  
+
 
 
 ### model
