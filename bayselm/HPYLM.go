@@ -128,19 +128,17 @@ func (hpylm *HPYLM) AddCustomer(word string, u context, base float64, addBaseFun
 	return
 }
 
-// AddStopAndPassCount adds stop parameters.
-// this function is used in VPYLM.
-func (hpylm *HPYLM) AddStopAndPassCount(word string, u context) {
+func (hpylm *HPYLM) addStopAndPassCount(word string, u context) {
 	rst, ok := hpylm.restaurants[strings.Join(u, concat)]
 	if !ok {
-		errMsg := fmt.Sprintf("AddStopAndPassCount error. context u (%v) does not exist", u)
+		errMsg := fmt.Sprintf("addStopAndPassCount error. context u (%v) does not exist", u)
 		panic(errMsg)
 	}
 	rst.stop++
 	for i := 1; i <= len(u); i++ {
 		rst, ok := hpylm.restaurants[strings.Join(u[i:], concat)]
 		if !ok {
-			errMsg := fmt.Sprintf("AddStopAndPassCount error. context u (%v) does not exist", u[i:])
+			errMsg := fmt.Sprintf("addStopAndPassCount error. context u (%v) does not exist", u[i:])
 			panic(errMsg)
 		}
 		rst.pass++
@@ -270,16 +268,14 @@ func (hpylm *HPYLM) RemoveCustomer(word string, u context, removeBaseFunc func(s
 	return
 }
 
-// RemoveStopAndPassCount removes stop parameters.
-// this function is used in VPYLM.
-func (hpylm *HPYLM) RemoveStopAndPassCount(word string, u context) {
+func (hpylm *HPYLM) removeStopAndPassCount(word string, u context) {
 	rst, ok := hpylm.restaurants[strings.Join(u, concat)]
 	if !ok {
-		errMsg := fmt.Sprintf("AddStopAndPassCount error. context u (%v) does not exist", u)
+		errMsg := fmt.Sprintf("removeStopAndPassCount error. context u (%v) does not exist", u)
 		panic(errMsg)
 	}
 	if rst.stop == 0 {
-		errMsg := fmt.Sprintf("AddStopAndPassCount error. rst.stop of context u (%v) == 0", u)
+		errMsg := fmt.Sprintf("removeStopAndPassCount error. rst.stop of context u (%v) == 0", u)
 		panic(errMsg)
 	}
 	rst.stop--
@@ -287,11 +283,11 @@ func (hpylm *HPYLM) RemoveStopAndPassCount(word string, u context) {
 	for i := 1; i <= len(u); i++ {
 		rst, ok := hpylm.restaurants[strings.Join(u[i:], concat)]
 		if !ok {
-			errMsg := fmt.Sprintf("AddStopAndPassCount error. context u (%v) does not exist", u[i:])
+			errMsg := fmt.Sprintf("removeStopAndPassCount error. context u (%v) does not exist", u[i:])
 			panic(errMsg)
 		}
 		if rst.pass == 0 {
-			errMsg := fmt.Sprintf("AddStopAndPassCount error. rst.stop of context u (%v) == 0", u)
+			errMsg := fmt.Sprintf("removeStopAndPassCount error. rst.stop of context u (%v) == 0", u)
 			panic(errMsg)
 		}
 		rst.pass--

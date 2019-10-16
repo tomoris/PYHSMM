@@ -51,14 +51,14 @@ func (vpylm *VPYLM) AddCustomer(word string, u context) int {
 		}
 	}
 	vpylm.hpylm.AddCustomer(word, u[len(u)-depth:], vpylm.hpylm.Base, vpylm.hpylm.addCustomerBaseNull)
-	vpylm.hpylm.AddStopAndPassCount(word, u[len(u)-depth:])
+	vpylm.hpylm.addStopAndPassCount(word, u[len(u)-depth:])
 	return depth
 }
 
 // RemoveCustomer removes n-gram parameters.
 func (vpylm *VPYLM) RemoveCustomer(word string, u context, prevSampledDepth int) {
 	// remove stops and passes
-	vpylm.hpylm.RemoveStopAndPassCount(word, u[len(u)-prevSampledDepth:])
+	vpylm.hpylm.removeStopAndPassCount(word, u[len(u)-prevSampledDepth:])
 	vpylm.hpylm.RemoveCustomer(word, u[len(u)-prevSampledDepth:], vpylm.hpylm.removeCustomerBaseNull)
 	return
 }

@@ -115,13 +115,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--alpha',
         help='hyper-parameter in VPYLM - PYHSMM \
-        (used sampling depth in VPYLM)',
+            (used sampling depth in VPYLM)',
         type=float,
         default=1.0)
     parser.add_argument(
         '--beta',
         help='hyper-parameter in VPYLM - PYHSMM \
-        (used sampling depth in VPYLM)',
+            (used sampling depth in VPYLM)',
         type=float,
         default=1.0)
     parser.add_argument(
