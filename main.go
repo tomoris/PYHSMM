@@ -57,13 +57,12 @@ func trainLanguageModel() {
 
 func trainWordSegmentation() {
 	runtime.GOMAXPROCS(*threads)
-	// model, ok := bayselm.GenerateNgramLM(*modelForLM, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize)
-	// if !ok {
-	// 	panic("Building model error")
-	// }
-	model := bayselm.NewNPYLM(*initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength) //, *posSize)
+	model, ok := bayselm.GenerateUnsupervisedWSM(*modelForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize)
+	if !ok {
+		panic("Building model error")
+	}
 	dataContainer := bayselm.NewDataContainer(*trainFilePathForWS)
-	model.Initialize(dataContainer.Sents, dataContainer.SamplingWordSeqs) // , dataContainer.SamplingPosSeqs)
+	model.Initialize(dataContainer)
 	for e := 0; e < *epoch; e++ {
 		model.TrainWordSegmentation(dataContainer, *threads, *batch)
 		testSize := 50

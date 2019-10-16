@@ -76,6 +76,9 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			wordSeq := make(context, 0, len(sent))
 			wordSeq = context(strings.Fields(sentStr))
+			if len(wordSeq) == 0 {
+				continue
+			}
 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
 			dataContainer.SamplingPosSeqs = append(dataContainer.SamplingPosSeqs, make([]int, len(wordSeq), len(wordSeq)))
 			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(wordSeq)))

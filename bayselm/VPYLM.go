@@ -1,6 +1,7 @@
 package bayselm
 
 import (
+	"math"
 	"math/rand"
 	"strings"
 
@@ -82,7 +83,7 @@ func (vpylm *VPYLM) CalcProb(word string, u context) (float64, []float64, []floa
 		pPass *= (1.0 - stopProbs[i])
 	}
 
-	return p, pNgrams, probs
+	return p + math.SmallestNonzeroFloat64, pNgrams, probs
 }
 
 func (vpylm *VPYLM) calcStopProbs(u context, stopProbs []float64) {

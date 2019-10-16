@@ -177,14 +177,14 @@ func (hpylm *HPYLM) addCustomerRecursively(word string, u context, probs []float
 	}
 	smoothingCoefficient := (theta + (d * float64(rst.totalTableCount))) / (theta + float64(rst.totalCustomerCount))
 	if len(u) == 0 {
-		scoreArray[tableNum] = smoothingCoefficient * base
+		scoreArray[tableNum] = smoothingCoefficient*base + math.SmallestNonzeroFloat64
 	} else {
-		scoreArray[tableNum] = smoothingCoefficient * probs[len(u)-1] // hpylm.CalcProb(word, u[1:])
+		scoreArray[tableNum] = smoothingCoefficient*probs[len(u)-1] + math.SmallestNonzeroFloat64 // hpylm.CalcProb(word, u[1:])
 	}
 	sumScore += scoreArray[tableNum]
 
 	// sampling
-	r := float64(rand.Float64()) * sumScore
+	r := rand.Float64()*sumScore - math.SmallestNonzeroFloat64
 	sumScore = 0.0
 	k := newUint(0)
 	for {
@@ -315,7 +315,7 @@ func (hpylm *HPYLM) CalcProb(word string, u context, base float64) (float64, []f
 		probs[i] = p
 	}
 
-	return p, probs
+	return p + math.SmallestNonzeroFloat64, probs
 }
 
 func (hpylm *HPYLM) calcProbRecursively(word string, u context, probBodies []float64, smoothingCoefficients []float64) {

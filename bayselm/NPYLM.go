@@ -136,7 +136,7 @@ func (npylm *NPYLM) calcBase(word string) float64 {
 	if len(runeWord) <= npylm.maxWordLength {
 		p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
 	}
-	return p
+	return p + math.SmallestNonzeroFloat64
 }
 
 func (npylm *NPYLM) logsumexp(forwardScoreTmp []float64) float64 {
@@ -366,7 +366,9 @@ func (npylm *NPYLM) removeWordSeqAsCustomer(wordSeq context) {
 }
 
 // Initialize initializes parameters.
-func (npylm *NPYLM) Initialize(sents [][]rune, samplingWordSeqs []context) {
+func (npylm *NPYLM) Initialize(dataContainer *DataContainer) {
+	sents := dataContainer.Sents
+	samplingWordSeqs := dataContainer.SamplingWordSeqs
 	for i := 0; i < len(sents); i++ {
 		sent := sents[i]
 		start := 0

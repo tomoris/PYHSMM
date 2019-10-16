@@ -1,6 +1,8 @@
 package bayselm
 
-import "math"
+import (
+	"math"
+)
 
 const concat string = "<concat>"
 const bos string = "<BOS>"
@@ -8,6 +10,28 @@ const bos string = "<BOS>"
 type newUint uint32
 
 type context []string
+
+// UnsupervisedWSM is unsupervised word segmentation model.
+type UnsupervisedWSM interface {
+	TrainWordSegmentation(*DataContainer, int, int)
+	TestWordSegmentation([][]rune, int) [][]string
+	Initialize(*DataContainer)
+}
+
+// GenerateUnsupervisedWSM returns UnsupervisedWSM instance.
+func GenerateUnsupervisedWSM(modelName string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int, base float64) (UnsupervisedWSM, bool) {
+	var model UnsupervisedWSM
+	ok := false
+	switch modelName {
+	case "npylm":
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		ok = true
+	case "pyhsmm":
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		ok = true
+	}
+	return model, ok
+}
 
 // NgramLM is n-gram language model.
 type NgramLM interface {
