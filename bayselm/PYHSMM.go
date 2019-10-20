@@ -109,6 +109,9 @@ func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]s
 func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]rune, threadsNum int) ([][]string, [][]int) {
 	wordSeqs := make([][]string, len(sents), len(sents))
 	posSeqs := make([][]int, len(sents), len(sents))
+	if threadsNum <= 0 {
+		panic("threadsNum should be bigger than 0")
+	}
 	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
 	for i := 0; i < len(sents); i++ {
@@ -192,10 +195,12 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 	base := float64(0.0)
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
-			base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+			if t-k >= 0 {
+				word = string(sent[(t - k) : t+1])
+				base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+			}
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
 				if t-k >= 0 {
-					word = string(sent[(t - k) : t+1])
 					u[0] = pyhsmm.bos
 					uPos[0] = string(pyhsmm.bosPos)
 					// base = pyhsmm.npylms[pos].calcBase(word)
@@ -295,8 +300,6 @@ func (pyhsmm *PYHSMM) backwardPosOnly(forwardScore [][]float64, sampling bool, g
 				}
 				nextPos++
 				if nextPos >= pyhsmm.PosSize {
-					fmt.Println(t, goldWordSeq, forwardScore)
-					fmt.Println(logSumScoreArrayLog, scoreArrayLog, r, sumScore)
 					panic("sampling error in PYHSMM")
 				}
 			}

@@ -201,6 +201,9 @@ func (npylm *NPYLM) TrainWordSegmentation(dataContainer *DataContainer, threadsN
 func (npylm *NPYLM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]string {
 	wordSeqs := make([][]string, len(sents), len(sents))
 	ch := make(chan int, threadsNum)
+	if threadsNum <= 0 {
+		panic("threadsNum should be bigger than 0")
+	}
 	wg := sync.WaitGroup{}
 	for i := 0; i < len(sents); i++ {
 		ch <- 1

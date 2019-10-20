@@ -49,7 +49,7 @@ We evaluated the language models of them on BCCWJ. The definition of words is su
 |hpylm   |130.4   |3|-|
 |vpylm   |131.3   |8|-|
 |npylm   |199.9   |2|-|
-|pyhsmm  |   | |10|
+|pyhsmm  |7294.0  | |10|
 
 ### Unsupervised Word Segmentation
 
