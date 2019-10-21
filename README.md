@@ -22,7 +22,6 @@ go build main.go
 
 ### for Python Extention (if you want)
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./
 gopy build -vm=`which python3` -output=pylib github.com/tomoris/PYHSMM/bayselm
 ```
 
@@ -33,8 +32,12 @@ Training word segmentation model without labeled data.
 `./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw`  
 
 ### for Python Extention (if you want)
-`go build -o trainWordSegmentation.so -buildmode=c-shared main.go`  
-`python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw`  
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./pylib
+export PYTHONPATH=$PYTHONPATH:./pylib
+go build -o trainWordSegmentation.so -buildmode=c-shared main.go
+python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw
+```
 
 
 
@@ -58,7 +61,7 @@ We evaluated the language models of them on BCCWJ. The definition of words is su
 |hpylm   |130.4   |3|-|
 |vpylm   |131.3   |8|-|
 |npylm   |199.9   |2|-|
-|pyhsmm  |7294.0  | |10|
+|pyhsmm  |7294.0  |2|10|
 
 ### Unsupervised Word Segmentation
 

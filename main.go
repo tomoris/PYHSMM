@@ -59,7 +59,6 @@ func trainLanguageModel() {
 //export trainWordSegmentation
 func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int) {
 	runtime.GOMAXPROCS(threads)
-	rand.Seed(time.Now().UnixNano())
 	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base)
 	if !ok {
 		panic("Building model error")

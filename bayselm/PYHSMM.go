@@ -105,6 +105,17 @@ func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]s
 	return wordSeqs
 }
 
+// TestWordSegmentationForPython inferences word segmentation and their POS tags from input unsegmented texts, and returns word sequence.
+func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]rune, threadsNum int) *DataContainer {
+	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
+	dataContainer := new(DataContainer)
+	for _, wordSeq := range wordSeqs {
+		dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
+	}
+	dataContainer.Size = len(wordSeqs)
+	return dataContainer
+}
+
 // TestWordSegmentationAndPOSTagging inferences word segmentation and their POS tags from input unsegmented texts.
 func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]rune, threadsNum int) ([][]string, [][]int) {
 	wordSeqs := make([][]string, len(sents), len(sents))
@@ -198,53 +209,51 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 			if t-k >= 0 {
 				word = string(sent[(t - k) : t+1])
 				base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+			} else {
+				continue
 			}
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
-				if t-k >= 0 {
+				if t-k == 0 {
 					u[0] = pyhsmm.bos
 					uPos[0] = string(pyhsmm.bosPos)
-					// base = pyhsmm.npylms[pos].calcBase(word)
-					if t-k == 0 {
-						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-						posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
-						score := math.Log(wordScore) + math.Log(posScore)
-						if math.IsNaN(score) {
-							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
-							panic(errMsg)
-						}
-						forwardScore[t][k][pos] = score
-						continue
+					wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+					posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+					score := math.Log(wordScore) + math.Log(posScore)
+					if math.IsNaN(score) {
+						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+						panic(errMsg)
 					}
-				} else {
+					forwardScore[t][k][pos] = score
 					continue
 				}
 				forwardScore[t][k][pos] = 0.0
 				forwardScoreTmp := make([]float64, 0, pyhsmm.maxWordLength*pyhsmm.PosSize)
 				for j := 0; j < pyhsmm.maxWordLength; j++ {
-					for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
-						if t-k-(j+1) >= 0 {
-							u[0] = string(sent[(t - k - (j + 1)):(t - k)])
-							wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(word, u, base)
-							uPos[0] = string(prevPos)
-							posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
-							score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][prevPos]
-							if math.IsNaN(score) {
-								errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
-								panic(errMsg)
-							}
-							forwardScoreTmp = append(forwardScoreTmp, score)
-						} else {
-							continue
-						}
+					if t-k-(j+1) >= 0 {
+						u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+					} else {
+						continue
 					}
-
+					for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
+						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+						uPos[0] = string(prevPos)
+						posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+						score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][prevPos]
+						if math.IsNaN(score) {
+							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+							panic(errMsg)
+						}
+						forwardScoreTmp = append(forwardScoreTmp, score)
+					}
 				}
+
 				logsumexpScore := pyhsmm.npylms[0].logsumexp(forwardScoreTmp)
-				if math.IsNaN(logsumexpScore - math.Log(float64(len(forwardScoreTmp)))) {
+				logsumexpScore = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
+				if math.IsNaN(logsumexpScore) {
 					errMsg := fmt.Sprintf("forward error! logsumexpScore is NaN. forwardScoreTmp (%v), word (%v)", forwardScoreTmp, word)
 					panic(errMsg)
 				}
-				forwardScore[t][k][pos] = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
+				forwardScore[t][k][pos] = logsumexpScore // - math.Log(float64(len(forwardScoreTmp)))
 			}
 		}
 	}
@@ -275,10 +284,10 @@ func (pyhsmm *PYHSMM) backwardPosOnly(forwardScore [][]float64, sampling bool, g
 		maxNextPos := -1
 		for nextPos := 0; nextPos < pyhsmm.PosSize; nextPos++ {
 			u[0] = goldWordSeq[t-1]
-			score, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
+			wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
 			uPos[0] = string(nextPos)
 			posScore, _ := pyhsmm.posHpylm.CalcProb(string(prevPos), uPos, pyhsmm.posHpylm.Base)
-			score = math.Log(score) + math.Log(posScore) + forwardScore[t-1][nextPos]
+			score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-1][nextPos]
 			if score > maxScore {
 				maxScore = score
 				maxNextPos = nextPos
@@ -340,18 +349,17 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 		for i := 0; i < pyhsmm.maxWordLength*pyhsmm.PosSize; i++ {
 			scoreArrayLog[i] = math.Inf(-1)
 		}
-		maxScore := float64(math.Inf(-1))
+		maxScore := math.Inf(-1)
 		maxJ := -1
 		maxNextPos := -1
-		sumScore := float64(0.0)
 		for j := 0; j < pyhsmm.maxWordLength; j++ {
 			for nextPos := 0; nextPos < pyhsmm.PosSize; nextPos++ {
 				if t-k-(j+1) >= 0 {
 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
-					score, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
+					wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
 					uPos[0] = string(nextPos)
 					posScore, _ := pyhsmm.posHpylm.CalcProb(string(prevPos), uPos, pyhsmm.posHpylm.Base)
-					score = math.Log(score) + math.Log(posScore) + forwardScore[t-(k+1)][j][nextPos]
+					score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][nextPos]
 					if score > maxScore {
 						maxScore = score
 						maxJ = j
@@ -368,7 +376,7 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 		nextPos := 0
 		if sampling {
 			r := rand.Float64()
-			sumScore = 0.0
+			sumScore := 0.0
 			for {
 				sumScore += math.Exp(scoreArrayLog[j*pyhsmm.PosSize+nextPos] - logSumScoreArrayLog)
 				if sumScore > r {
@@ -424,7 +432,7 @@ func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 			uPos[0] = string(pyhsmm.bosPos)
 		} else {
 			u[0] = wordSeq[i-1]
-			u[0] = string(posSeq[i-1])
+			uPos[0] = string(posSeq[i-1])
 		}
 		// pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[pos].addCustomerBase)
 		pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[0].addCustomerBase) // 文字レベルのスムージングは一つのVPYLMに追加
@@ -449,7 +457,7 @@ func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
 			uPos[0] = string(pyhsmm.bosPos)
 		} else {
 			u[0] = wordSeq[i-1]
-			u[0] = string(posSeq[i-1])
+			uPos[0] = string(posSeq[i-1])
 		}
 		pyhsmm.npylms[pos].RemoveCustomer(word, u, pyhsmm.npylms[0].removeCustomerBase)
 		pyhsmm.posHpylm.RemoveCustomer(string(pos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)

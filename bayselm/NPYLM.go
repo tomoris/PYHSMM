@@ -133,9 +133,9 @@ func (npylm *NPYLM) calcBase(word string) float64 {
 	p *= pTmpMixed
 
 	// poisson correction
-	if len(runeWord) <= npylm.maxWordLength {
-		p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
-	}
+	// if len(runeWord) <= npylm.maxWordLength {
+	// 	p *= float64(npylm.poisson.Prob(float64(len(runeWord))) / float64(npylm.length2prob[len(runeWord)-1]))
+	// }
 	return p + math.SmallestNonzeroFloat64
 }
 
@@ -234,11 +234,11 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 		for k := 0; k < npylm.maxWordLength; k++ {
 			if t-k >= 0 {
 				word = string(sent[(t - k) : t+1])
-				u[0] = npylm.bos
 				base = npylm.calcBase(word)
 				if t-k == 0 {
+					u[0] = npylm.bos
 					score, _ := npylm.CalcProb(word, u, base)
-					forwardScore[t][k] = float64(math.Log(float64(score)))
+					forwardScore[t][k] = math.Log(score)
 					continue
 				}
 			} else {
@@ -250,14 +250,14 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 				if t-k-(j+1) >= 0 {
 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 					score, _ := npylm.CalcProb(word, u, base)
-					score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
+					score = math.Log(score) + forwardScore[t-(k+1)][j]
 					forwardScoreTmp = append(forwardScoreTmp, score)
 				} else {
 					continue
 				}
 			}
 			logsumexpScore := npylm.logsumexp(forwardScoreTmp)
-			forwardScore[t][k] = logsumexpScore - float64(math.Log(float64(len(forwardScoreTmp))))
+			forwardScore[t][k] = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
 		}
 	}
 
@@ -289,7 +289,7 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 			if t-k-(j+1) >= 0 {
 				u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 				score, _ := npylm.CalcProb(prevWord, u, base)
-				score = float64(math.Log(float64(score)) + float64(forwardScore[t-(k+1)][j]))
+				score = math.Log(score) + forwardScore[t-(k+1)][j]
 				if score > maxScore {
 					maxScore = score
 					maxJ = j
@@ -302,7 +302,7 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 		logSumScoreArrayLog := npylm.logsumexp(scoreArrayLog)
 		j := 0
 		if sampling {
-			r := float64(rand.Float64())
+			r := rand.Float64()
 			sumScore := 0.0
 			for {
 				score := math.Exp(scoreArrayLog[j] - logSumScoreArrayLog)

@@ -88,3 +88,8 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 	dataContainer.Size = count
 	return dataContainer
 }
+
+// GetWordSeq returns i-th wordSeq ([]string) for python binding.
+func (dataContainer *DataContainer) GetWordSeq(i int) []string {
+	return dataContainer.SamplingWordSeqs[i]
+}
