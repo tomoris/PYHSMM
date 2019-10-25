@@ -14,7 +14,7 @@ type restaurantJSON struct {
 	Pass newUint // number of pass for stop probability in n-gram
 }
 
-type HPYLMJSON struct {
+type hPYLMJSON struct {
 	Restaurants map[string]*restaurantJSON // context to restaurant
 
 	MaxDepth int
@@ -27,16 +27,16 @@ type HPYLMJSON struct {
 	Base     float64
 }
 
-type VPYLMJSON struct {
-	Hpylm *HPYLMJSON
+type vPYLMJSON struct {
+	Hpylm *hPYLMJSON
 	Alpha float64 // hyper-parameter for beta distribution to estimate stop probability
 	Beta  float64 // hyper-parameter for beta distribution to estimate stop probability
 }
 
-type NPYLMJSON struct {
-	*HPYLMJSON
+type nPYLMJSON struct {
+	*hPYLMJSON
 	// add
-	Vpylm *VPYLMJSON
+	Vpylm *vPYLMJSON
 
 	MaxNgram      int
 	MaxWordLength int
@@ -51,8 +51,8 @@ type NPYLMJSON struct {
 	Word2sampledDepthMemory map[string][][]int
 }
 
-type PYHSMMJSON struct {
-	Npylms   []*NPYLMJSON
+type pYHSMMJSON struct {
+	Npylms   []*nPYLMJSON
 	PosHpylm interface{}
 
 	MaxNgram      int

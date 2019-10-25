@@ -540,8 +540,8 @@ func (npylm *NPYLM) ReturnMaxN() int {
 // Save returns json.Marshal(npylmJSON) and npylmJSON.
 // npylmJSON is struct to save. its variables can be exported.
 func (npylm *NPYLM) Save() ([]byte, interface{}) {
-	npylmJSON := &NPYLMJSON{
-		HPYLMJSON: &HPYLMJSON{Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
+	npylmJSON := &nPYLMJSON{
+		hPYLMJSON: &hPYLMJSON{Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
 			rstsJSON := make(map[string]*restaurantJSON)
 			for key, rst := range rsts {
 				_, rstJSON := rst.save()
@@ -560,9 +560,9 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 			Base:     npylm.Base,
 		},
 
-		Vpylm: func(npylm *NPYLM) *VPYLMJSON {
+		Vpylm: func(npylm *NPYLM) *vPYLMJSON {
 			_, vpylmJSONInterface := npylm.vpylm.Save()
-			vpylmJSON, ok := vpylmJSONInterface.(*VPYLMJSON)
+			vpylmJSON, ok := vpylmJSONInterface.(*vPYLMJSON)
 			if !ok {
 				panic("save error in NPYLM")
 			}
@@ -588,7 +588,7 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 
 // Load npylm.
 func (npylm *NPYLM) Load(v []byte) {
-	npylmJSON := new(NPYLMJSON)
+	npylmJSON := new(nPYLMJSON)
 	err := json.Unmarshal(v, &npylmJSON)
 	if err != nil {
 		panic("load error in NPYLM")

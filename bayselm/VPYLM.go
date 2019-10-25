@@ -162,11 +162,11 @@ func (vpylm *VPYLM) ReturnMaxN() int {
 // Save returns json.Marshal(vpylmJSON) and vpylmJSON.
 // vpylmJSON is struct to save. its variables can be exported.
 func (vpylm *VPYLM) Save() ([]byte, interface{}) {
-	vpylmJSON := &VPYLMJSON{
+	vpylmJSON := &vPYLMJSON{
 
-		Hpylm: func(vpylm *VPYLM) *HPYLMJSON {
+		Hpylm: func(vpylm *VPYLM) *hPYLMJSON {
 			_, hpylmJSONInterface := vpylm.hpylm.Save()
-			hpylmJSON, ok := hpylmJSONInterface.(*HPYLMJSON)
+			hpylmJSON, ok := hpylmJSONInterface.(*hPYLMJSON)
 			if !ok {
 				panic("save error in VPYLM")
 			}
@@ -184,13 +184,13 @@ func (vpylm *VPYLM) Save() ([]byte, interface{}) {
 
 // Load hpylm.
 func (vpylm *VPYLM) Load(v []byte) {
-	vpylmJSON := new(VPYLMJSON)
+	vpylmJSON := new(vPYLMJSON)
 	err := json.Unmarshal(v, &vpylmJSON)
 	if err != nil {
 		panic("load error in VPYLM")
 	}
 
-	vpylm.hpylm = func(vpylmJSON *VPYLMJSON) *HPYLM {
+	vpylm.hpylm = func(vpylmJSON *vPYLMJSON) *HPYLM {
 		hpylmV, err := json.Marshal(&vpylmJSON.Hpylm)
 		if err != nil {
 			panic("load error in load restaurants in VPYLM")

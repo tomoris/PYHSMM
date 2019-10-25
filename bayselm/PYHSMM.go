@@ -597,12 +597,12 @@ func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
 	for k, v := range pyhsmm.npylms[0].restaurants {
 		fmt.Println(k, v)
 	}
-	pyhsmmJSON := &PYHSMMJSON{
-		Npylms: func(pyhsmm *PYHSMM) []*NPYLMJSON {
-			npylmsJSON := make([]*NPYLMJSON, 0, len(pyhsmm.npylms))
+	pyhsmmJSON := &pYHSMMJSON{
+		Npylms: func(pyhsmm *PYHSMM) []*nPYLMJSON {
+			npylmsJSON := make([]*nPYLMJSON, 0, len(pyhsmm.npylms))
 			for _, npylm := range pyhsmm.npylms {
 				_, npylmJSONInterface := npylm.Save()
-				npylmJSON, ok := npylmJSONInterface.(*NPYLMJSON)
+				npylmJSON, ok := npylmJSONInterface.(*nPYLMJSON)
 				if !ok {
 					panic("save error in PYHSMM")
 				}
@@ -635,12 +635,12 @@ func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
 
 // Load pyhsmm.
 func (pyhsmm *PYHSMM) Load(v []byte) {
-	pyhsmmJSON := new(PYHSMMJSON)
+	pyhsmmJSON := new(pYHSMMJSON)
 	err := json.Unmarshal(v, &pyhsmmJSON)
 	if err != nil {
 		panic("load error in PYHSMM")
 	}
-	pyhsmm.npylms = func(pyhsmmJSON *PYHSMMJSON) []*NPYLM {
+	pyhsmm.npylms = func(pyhsmmJSON *pYHSMMJSON) []*NPYLM {
 		npylms := make([]*NPYLM, 0, 0)
 		for _, npylmJSON := range pyhsmmJSON.Npylms {
 			npylmV, err := json.Marshal(&npylmJSON)
