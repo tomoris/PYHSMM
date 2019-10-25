@@ -48,7 +48,7 @@ type nPYLMJSON struct {
 	Poisson     distuv.Poisson
 	Length2prob []float64
 
-	Word2sampledDepthMemory map[string][][]int
+	Word2sampledDepthMemory map[string]interface{}
 }
 
 type pYHSMMJSON struct {

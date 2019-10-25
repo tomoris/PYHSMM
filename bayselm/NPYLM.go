@@ -583,6 +583,13 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 
 		Poisson:     npylm.poisson,
 		Length2prob: npylm.length2prob,
+		Word2sampledDepthMemory: func(npylm *NPYLM) map[string]interface{} {
+			word2sampledDepthMemory := make(map[string]interface{})
+			for key, value := range npylm.word2sampledDepthMemory {
+				word2sampledDepthMemory[key] = value
+			}
+			return word2sampledDepthMemory
+		}(npylm),
 	}
 	v, err := json.Marshal(&npylmJSON)
 	if err != nil {
@@ -629,5 +636,12 @@ func (npylm *NPYLM) Load(v []byte) {
 
 	npylm.poisson = npylmJSON.Poisson
 	npylm.length2prob = npylmJSON.Length2prob
+	npylm.word2sampledDepthMemory = func(npylmJSON *nPYLMJSON) map[string][][]int {
+		word2sampledDepthMemory := make(map[string][][]int)
+		for key, value := range npylmJSON.Word2sampledDepthMemory {
+			word2sampledDepthMemory[key] = value.([][]int)
+		}
+		return word2sampledDepthMemory
+	}(npylmJSON)
 	return
 }
