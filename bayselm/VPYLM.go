@@ -1,6 +1,7 @@
 package bayselm
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 	"strings"
@@ -156,4 +157,50 @@ func (vpylm *VPYLM) ReturnNgramProb(word string, u context) float64 {
 // This is used for interface of LmModel.
 func (vpylm *VPYLM) ReturnMaxN() int {
 	return vpylm.hpylm.maxDepth + 1
+}
+
+// Save returns json.Marshal(vpylmJSON) and vpylmJSON.
+// vpylmJSON is struct to save. its variables can be exported.
+func (vpylm *VPYLM) Save() ([]byte, interface{}) {
+	vpylmJSON := &VPYLMJSON{
+
+		Hpylm: func(vpylm *VPYLM) *HPYLMJSON {
+			_, hpylmJSONInterface := vpylm.hpylm.Save()
+			hpylmJSON, ok := hpylmJSONInterface.(*HPYLMJSON)
+			if !ok {
+				panic("save error in VPYLM")
+			}
+			return hpylmJSON
+		}(vpylm),
+		Alpha: vpylm.alpha,
+		Beta:  vpylm.beta,
+	}
+	v, err := json.Marshal(&vpylmJSON)
+	if err != nil {
+		panic("save error in VPYLM")
+	}
+	return v, vpylmJSON
+}
+
+// Load hpylm.
+func (vpylm *VPYLM) Load(v []byte) {
+	vpylmJSON := new(VPYLMJSON)
+	err := json.Unmarshal(v, &vpylmJSON)
+	if err != nil {
+		panic("load error in VPYLM")
+	}
+
+	vpylm.hpylm = func(vpylmJSON *VPYLMJSON) *HPYLM {
+		hpylmV, err := json.Marshal(&vpylmJSON.Hpylm)
+		if err != nil {
+			panic("load error in load restaurants in VPYLM")
+		}
+		hpylm := new(HPYLM)
+		hpylm.Load(hpylmV)
+		return hpylm
+	}(vpylmJSON)
+	vpylm.alpha = vpylmJSON.Alpha
+	vpylm.beta = vpylmJSON.Beta
+
+	return
 }

@@ -1,6 +1,7 @@
 package bayselm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -22,6 +23,43 @@ type restaurant struct {
 
 	stop newUint // number of stop for stop probability in n-gram
 	pass newUint // number of pass for stop probability in n-gram
+}
+
+func (rst *restaurant) save() ([]byte, *restaurantJSON) {
+	rstJSON := &restaurantJSON{
+		Tables:                     rst.tables,
+		CustomerCount:              rst.customerCount,
+		TotalCustomerCount:         rst.totalCustomerCount,
+		TotalTableCountForCustomer: rst.totalTableCountForCustomer,
+		TotalTableCount:            rst.totalTableCount,
+
+		Stop: rst.stop,
+		Pass: rst.pass,
+	}
+	v, err := json.Marshal(&rstJSON)
+	if err != nil {
+		panic("save error in PYHSMM")
+	}
+	return v, rstJSON
+}
+
+func (rst *restaurant) load(v []byte) {
+	rstJSON := new(restaurantJSON)
+
+	err := json.Unmarshal(v, &rstJSON)
+	if err != nil {
+		panic("load error in restaurant")
+	}
+
+	rst.tables = rstJSON.Tables
+	rst.customerCount = rstJSON.CustomerCount
+	rst.totalCustomerCount = rstJSON.TotalCustomerCount
+	rst.totalTableCountForCustomer = rstJSON.TotalTableCountForCustomer
+	rst.totalTableCount = rstJSON.TotalTableCount
+
+	rst.stop = rstJSON.Stop
+	rst.pass = rstJSON.Pass
+	return
 }
 
 // HPYLM contains n-gram parameters as restaurants.
@@ -453,4 +491,66 @@ func (hpylm *HPYLM) ReturnNgramProb(word string, u context) float64 {
 // This is used for interface of LmModel.
 func (hpylm *HPYLM) ReturnMaxN() int {
 	return hpylm.maxDepth + 1
+}
+
+// Save returns json.Marshal(hpylmJSON) and hpylmJSON.
+// hpylmJSON is struct to save. its variables can be exported.
+func (hpylm *HPYLM) Save() ([]byte, interface{}) {
+	hpylmJSON := &HPYLMJSON{
+		Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
+			rstsJSON := make(map[string]*restaurantJSON)
+			for key, rst := range rsts {
+				_, rstJSON := rst.save()
+				rstsJSON[key] = rstJSON
+			}
+			return rstsJSON
+		}(hpylm.restaurants),
+
+		MaxDepth: hpylm.maxDepth,
+		Theta:    hpylm.theta,
+		D:        hpylm.d,
+		GammaA:   hpylm.gammaA,
+		GammaB:   hpylm.gammaB,
+		BetaA:    hpylm.betaA,
+		BetaB:    hpylm.betaB,
+		Base:     hpylm.Base,
+	}
+	v, err := json.Marshal(&hpylmJSON)
+	if err != nil {
+		panic("save error in HPYLM")
+	}
+	return v, hpylmJSON
+}
+
+// Load hpylm.
+func (hpylm *HPYLM) Load(v []byte) {
+	hpylmJSON := new(HPYLMJSON)
+	err := json.Unmarshal(v, &hpylmJSON)
+	if err != nil {
+		panic("load error in HPYLM")
+	}
+	hpylm.restaurants = func(hpylmJSON *HPYLMJSON) map[string]*restaurant {
+		rsts := make(map[string]*restaurant)
+		for key, rstJSON := range hpylmJSON.Restaurants {
+			rstV, err := json.Marshal(&rstJSON)
+			if err != nil {
+				panic("load error in load restaurants in HPYLM")
+			}
+			rst := newRestaurant()
+			rst.load(rstV)
+			rsts[key] = rst
+		}
+		return rsts
+	}(hpylmJSON)
+
+	hpylm.maxDepth = hpylmJSON.MaxDepth
+	hpylm.theta = hpylmJSON.Theta
+	hpylm.d = hpylmJSON.D
+	hpylm.gammaA = hpylmJSON.GammaA
+	hpylm.gammaB = hpylmJSON.GammaB
+	hpylm.betaA = hpylmJSON.BetaA
+	hpylm.betaB = hpylmJSON.BetaB
+	hpylm.Base = hpylmJSON.Base
+
+	return
 }

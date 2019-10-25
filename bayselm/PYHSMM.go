@@ -1,9 +1,11 @@
 package bayselm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
@@ -163,14 +165,14 @@ func (pyhsmm *PYHSMM) forwardForSamplingPosOnly(goldWordSeq context) [][]float64
 			base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 			p, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
 			if t == 0 {
-				uPos[0] = string(pyhsmm.bosPos)
-				posP, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+				uPos[0] = strconv.Itoa(pyhsmm.bosPos)
+				posP, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
 				forwardScore[t][pos] = math.Log(p) + math.Log(posP)
 			} else {
 				forwardScoreTmp := make([]float64, 0, pyhsmm.PosSize)
 				for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
-					uPos[0] = string(prevPos)
-					posP, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+					uPos[0] = strconv.Itoa(prevPos)
+					posP, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
 					score := math.Log(p) + math.Log(posP) + forwardScore[t-1][prevPos]
 					if math.IsNaN(score) {
 						errMsg := fmt.Sprintf("forward error! score is NaN. p (%v), posP, (%v), word (%v)", p, posP, word)
@@ -215,9 +217,9 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
 				if t-k == 0 {
 					u[0] = pyhsmm.bos
-					uPos[0] = string(pyhsmm.bosPos)
+					uPos[0] = strconv.Itoa(pyhsmm.bosPos)
 					wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-					posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+					posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
 					score := math.Log(wordScore) + math.Log(posScore)
 					if math.IsNaN(score) {
 						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
@@ -236,8 +238,8 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 					}
 					for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
 						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-						uPos[0] = string(prevPos)
-						posScore, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+						uPos[0] = strconv.Itoa(prevPos)
+						posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
 						score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][prevPos]
 						if math.IsNaN(score) {
 							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
@@ -285,8 +287,8 @@ func (pyhsmm *PYHSMM) backwardPosOnly(forwardScore [][]float64, sampling bool, g
 		for nextPos := 0; nextPos < pyhsmm.PosSize; nextPos++ {
 			u[0] = goldWordSeq[t-1]
 			wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
-			uPos[0] = string(nextPos)
-			posScore, _ := pyhsmm.posHpylm.CalcProb(string(prevPos), uPos, pyhsmm.posHpylm.Base)
+			uPos[0] = strconv.Itoa(nextPos)
+			posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(prevPos), uPos, pyhsmm.posHpylm.Base)
 			score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-1][nextPos]
 			if score > maxScore {
 				maxScore = score
@@ -357,8 +359,8 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 				if t-k-(j+1) >= 0 {
 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
 					wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
-					uPos[0] = string(nextPos)
-					posScore, _ := pyhsmm.posHpylm.CalcProb(string(prevPos), uPos, pyhsmm.posHpylm.Base)
+					uPos[0] = strconv.Itoa(nextPos)
+					posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(prevPos), uPos, pyhsmm.posHpylm.Base)
 					score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][nextPos]
 					if score > maxScore {
 						maxScore = score
@@ -429,22 +431,22 @@ func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 		base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 		if i == 0 {
 			u[0] = pyhsmm.bos
-			uPos[0] = string(pyhsmm.bosPos)
+			uPos[0] = strconv.Itoa(pyhsmm.bosPos)
 		} else {
 			u[0] = wordSeq[i-1]
-			uPos[0] = string(posSeq[i-1])
+			uPos[0] = strconv.Itoa(posSeq[i-1])
 		}
 		// pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[pos].addCustomerBase)
 		pyhsmm.npylms[pos].AddCustomer(word, u, base, pyhsmm.npylms[0].addCustomerBase) // 文字レベルのスムージングは一つのVPYLMに追加
-		pyhsmm.posHpylm.AddCustomer(string(pos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
+		pyhsmm.posHpylm.AddCustomer(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
 	// base = pyhsmm.npylms[pyhsmm.eosPos].vpylm.hpylm.Base
 	base = pyhsmm.npylms[0].vpylm.hpylm.Base
 	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[0].addCustomerBase)
-	uPos[0] = string(posSeq[len(posSeq)-1])
-	pyhsmm.posHpylm.AddCustomer(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
+	uPos[0] = strconv.Itoa(posSeq[len(posSeq)-1])
+	pyhsmm.posHpylm.AddCustomer(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
 }
 
 func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
@@ -454,19 +456,19 @@ func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
 		pos := posSeq[i]
 		if i == 0 {
 			u[0] = pyhsmm.bos
-			uPos[0] = string(pyhsmm.bosPos)
+			uPos[0] = strconv.Itoa(pyhsmm.bosPos)
 		} else {
 			u[0] = wordSeq[i-1]
-			uPos[0] = string(posSeq[i-1])
+			uPos[0] = strconv.Itoa(posSeq[i-1])
 		}
 		pyhsmm.npylms[pos].RemoveCustomer(word, u, pyhsmm.npylms[0].removeCustomerBase)
-		pyhsmm.posHpylm.RemoveCustomer(string(pos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
+		pyhsmm.posHpylm.RemoveCustomer(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
 	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[0].removeCustomerBase)
-	uPos[0] = string(posSeq[len(posSeq)-1])
-	pyhsmm.posHpylm.RemoveCustomer(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
+	uPos[0] = strconv.Itoa(posSeq[len(posSeq)-1])
+	pyhsmm.posHpylm.RemoveCustomer(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
 }
 
 // Initialize initializes parameters.
@@ -572,11 +574,11 @@ func (pyhsmm *PYHSMM) ReturnNgramProb(word string, u context) float64 {
 	sumPpos := 0.0
 	base := pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 	uPos := context{""}
-	pPosBos, _ := pyhsmm.posHpylm.CalcProb(string(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base)
+	pPosBos, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base)
 	for pos := 0; pos < pyhsmm.PosSize; pos++ {
 		// base := pyhsmm.npylms[pos].calcBase(word)
 		pGivenPos, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-		pPos, _ := pyhsmm.posHpylm.CalcProb(string(pos), uPos, pyhsmm.posHpylm.Base)
+		pPos, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
 		p += pGivenPos * (pPos / (1.0 - pPosBos))
 		sumPpos += pPos
 	}
@@ -587,4 +589,83 @@ func (pyhsmm *PYHSMM) ReturnNgramProb(word string, u context) float64 {
 // This is used for interface of LmModel.
 func (pyhsmm *PYHSMM) ReturnMaxN() int {
 	return pyhsmm.maxNgram
+}
+
+// Save returns json.Marshal(pyhsmmJSON) and pyhsmmJSON.
+// pyhsmmJSON is struct to save. its variables can be exported.
+func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
+	for k, v := range pyhsmm.npylms[0].restaurants {
+		fmt.Println(k, v)
+	}
+	pyhsmmJSON := &PYHSMMJSON{
+		Npylms: func(pyhsmm *PYHSMM) []*NPYLMJSON {
+			npylmsJSON := make([]*NPYLMJSON, 0, len(pyhsmm.npylms))
+			for _, npylm := range pyhsmm.npylms {
+				_, npylmJSONInterface := npylm.Save()
+				npylmJSON, ok := npylmJSONInterface.(*NPYLMJSON)
+				if !ok {
+					panic("save error in PYHSMM")
+				}
+				npylmsJSON = append(npylmsJSON, npylmJSON)
+			}
+			return npylmsJSON
+		}(pyhsmm),
+		PosHpylm: func(pyhsmm *PYHSMM) interface{} {
+			_, posHpylmJSON := pyhsmm.posHpylm.Save()
+			return posHpylmJSON
+		}(pyhsmm),
+
+		MaxNgram:      pyhsmm.maxNgram,
+		MaxWordLength: pyhsmm.maxWordLength,
+		Bos:           pyhsmm.bos,
+		Eos:           pyhsmm.eos,
+		Bow:           pyhsmm.bow,
+		Eow:           pyhsmm.eow,
+
+		PosSize: pyhsmm.PosSize,
+		EosPos:  pyhsmm.eosPos,
+		BosPos:  pyhsmm.bosPos,
+	}
+	v, err := json.Marshal(&pyhsmmJSON)
+	if err != nil {
+		panic("save error in PYHSMM")
+	}
+	return v, pyhsmmJSON
+}
+
+// Load pyhsmm.
+func (pyhsmm *PYHSMM) Load(v []byte) {
+	pyhsmmJSON := new(PYHSMMJSON)
+	err := json.Unmarshal(v, &pyhsmmJSON)
+	if err != nil {
+		panic("load error in PYHSMM")
+	}
+	pyhsmm.npylms = func(pyhsmmJSON *PYHSMMJSON) []*NPYLM {
+		npylms := make([]*NPYLM, 0, 0)
+		for _, npylmJSON := range pyhsmmJSON.Npylms {
+			npylmV, err := json.Marshal(&npylmJSON)
+			if err != nil {
+				panic("load error in load npylm in PYHSMM")
+			}
+			// npylm := NewNPYLM(npylmJSON.Theta[0], npylmJSON.D[0], npylmJSON.GammaA[0], npylmJSON.GammaB[0], npylmJSON.BetaA[0], npylmJSON.BetaB[0], 0.1, 0.1, npylmJSON.MaxNgram, npylmJSON.MaxWordLength)
+			// restaurants まで作ってあげないと、あとで nil pointer にアクセスしてエラーになる
+			npylm := &NPYLM{HPYLM: &HPYLM{restaurants: make(map[string]*restaurant)}}
+			npylm.Load(npylmV)
+			npylms = append(npylms, npylm)
+		}
+		return npylms
+	}(pyhsmmJSON)
+
+	pyhsmm.maxNgram = pyhsmmJSON.MaxNgram
+	pyhsmm.maxWordLength = pyhsmmJSON.MaxWordLength
+	pyhsmm.bos = pyhsmmJSON.Bos
+	pyhsmm.eos = pyhsmmJSON.Eos
+	pyhsmm.bow = pyhsmmJSON.Bow
+	pyhsmm.eow = pyhsmmJSON.Eow
+
+	pyhsmm.PosSize = pyhsmmJSON.PosSize
+	pyhsmm.eosPos = pyhsmmJSON.EosPos
+	pyhsmm.bosPos = pyhsmmJSON.BosPos
+
+	return
 }

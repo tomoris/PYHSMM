@@ -11,6 +11,10 @@ import (
 	"github.com/tomoris/PYHSMM/bayselm"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
+import (
+	"encoding/json"
+	"io/ioutil"
+)
 
 var (
 	args = kingpin.New("bayselm", "Baysian n-gram language model.")
@@ -67,12 +71,25 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initial
 	model.Initialize(dataContainer)
 	for e := 0; e < epoch; e++ {
 		model.TrainWordSegmentation(dataContainer, threads, batch)
-		testSize := 50
-		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
-		for i := 0; i < testSize; i++ {
-			fmt.Println("test", wordSeqs[i])
-		}
+		// testSize := 50
+		// wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
+		// for i := 0; i < testSize; i++ {
+		// 	fmt.Println("test", wordSeqs[i])
+		// }
 	}
+	_, modelJSON := model.Save()
+	modelJSONIndent, err := json.MarshalIndent(modelJSON, "", "    ")
+	ioutil.WriteFile("model.json", modelJSONIndent, 0644)
+	if err != nil {
+		panic("save model error")
+	}
+	v, _ := ioutil.ReadFile("model.json")
+	newmodel := new(bayselm.PYHSMM)
+	newmodel2 := new(bayselm.NPYLM)
+	newmodel3 := &bayselm.NPYLM{}
+	fmt.Println(newmodel2)
+	fmt.Println(newmodel3)
+	newmodel.Load(v)
 	return
 }
 

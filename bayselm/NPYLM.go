@@ -1,6 +1,7 @@
 package bayselm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -534,4 +535,94 @@ func (npylm *NPYLM) ReturnNgramProb(word string, u context) float64 {
 // This is used for interface of LmModel.
 func (npylm *NPYLM) ReturnMaxN() int {
 	return npylm.maxNgram
+}
+
+// Save returns json.Marshal(npylmJSON) and npylmJSON.
+// npylmJSON is struct to save. its variables can be exported.
+func (npylm *NPYLM) Save() ([]byte, interface{}) {
+	npylmJSON := &NPYLMJSON{
+		HPYLMJSON: &HPYLMJSON{Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
+			rstsJSON := make(map[string]*restaurantJSON)
+			for key, rst := range rsts {
+				_, rstJSON := rst.save()
+				rstsJSON[key] = rstJSON
+			}
+			return rstsJSON
+		}(npylm.restaurants),
+
+			MaxDepth: npylm.maxDepth,
+			Theta:    npylm.theta,
+			D:        npylm.d,
+			GammaA:   npylm.gammaA,
+			GammaB:   npylm.gammaB,
+			BetaA:    npylm.betaA,
+			BetaB:    npylm.betaB,
+			Base:     npylm.Base,
+		},
+
+		Vpylm: func(npylm *NPYLM) *VPYLMJSON {
+			_, vpylmJSONInterface := npylm.vpylm.Save()
+			vpylmJSON, ok := vpylmJSONInterface.(*VPYLMJSON)
+			if !ok {
+				panic("save error in NPYLM")
+			}
+			return vpylmJSON
+		}(npylm),
+
+		MaxNgram:      npylm.maxNgram,
+		MaxWordLength: npylm.maxWordLength,
+		Bos:           npylm.bos,
+		Eos:           npylm.eos,
+		Bow:           npylm.bow,
+		Eow:           npylm.eow,
+
+		Poisson:     npylm.poisson,
+		Length2prob: npylm.length2prob,
+	}
+	v, err := json.Marshal(&npylmJSON)
+	if err != nil {
+		panic("save error in NPYLM")
+	}
+	return v, npylmJSON
+}
+
+// Load npylm.
+func (npylm *NPYLM) Load(v []byte) {
+	npylmJSON := new(NPYLMJSON)
+	err := json.Unmarshal(v, &npylmJSON)
+	if err != nil {
+		panic("load error in NPYLM")
+	}
+
+	// load npylm.restaurants
+	// 一度map[string]*restaurantJSON を作ってから代入だとエラーになる (nil pointer)
+	for key, rstJSON := range npylmJSON.Restaurants {
+		rstV, err := json.Marshal(&rstJSON)
+		if err != nil {
+			panic("load error in load restaurants in HPYLM")
+		}
+		rst := newRestaurant()
+		rst.load(rstV)
+		npylm.restaurants[key] = rst
+	}
+
+	npylm.maxDepth = npylmJSON.MaxDepth
+	npylm.theta = npylmJSON.Theta
+	npylm.d = npylmJSON.D
+	npylm.gammaA = npylmJSON.GammaA
+	npylm.gammaB = npylmJSON.GammaB
+	npylm.betaA = npylmJSON.BetaA
+	npylm.betaB = npylmJSON.BetaB
+	npylm.Base = npylmJSON.Base
+
+	npylm.maxNgram = npylmJSON.MaxNgram
+	npylm.maxWordLength = npylmJSON.MaxWordLength
+	npylm.bos = npylmJSON.Bos
+	npylm.eos = npylmJSON.Eos
+	npylm.bow = npylmJSON.Bow
+	npylm.eow = npylmJSON.Eow
+
+	npylm.poisson = npylmJSON.Poisson
+	npylm.length2prob = npylmJSON.Length2prob
+	return
 }
