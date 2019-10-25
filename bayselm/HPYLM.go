@@ -120,6 +120,9 @@ func (rst *restaurant) removeCustomer(word string, u context, k newUint) (bool, 
 			removeRst = true
 		}
 	}
+	if len(rst.tables[word]) == 0 {
+		delete(rst.tables, word)
+	}
 	return removeTbl, removeRst
 }
 
