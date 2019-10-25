@@ -453,8 +453,10 @@ func (npylm *NPYLM) poissonCorrection() {
 	sampleSize := 10000
 	for i := 0; i < sampleSize; i++ {
 		k := -1
-		u := make(context, 0, npylm.maxWordLength)
-		u = append(u, npylm.bow)
+		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
+		for i := 0; i < npylm.maxWordLength; i++ {
+			uChar = append(uChar, npylm.bow)
+		}
 		for {
 			probArray := make([]float64, charVocabSize, charVocabSize)
 			sumScore := float64(0.0)
@@ -465,11 +467,11 @@ func (npylm *NPYLM) poissonCorrection() {
 				if char == npylm.eow && k == -1 {
 					continue
 				}
-				prob, _, _ := npylm.vpylm.CalcProb(char, u)
+				prob, _, _ := npylm.vpylm.CalcProb(char, uChar)
 				probArray[charIndex] = prob
 				sumScore += prob
 			}
-			r := float64(rand.Float64()) * sumScore
+			r := rand.Float64() * sumScore
 			sumScore = 0.0
 			charIndex := 0
 			for _, prob := range probArray {
@@ -478,6 +480,9 @@ func (npylm *NPYLM) poissonCorrection() {
 					break
 				}
 				charIndex++
+				if charIndex >= charVocabSize {
+					panic("poissonCorrection error")
+				}
 			}
 			char := chars[charIndex]
 
@@ -485,7 +490,7 @@ func (npylm *NPYLM) poissonCorrection() {
 				break
 			}
 			k++
-			u = append(u, char)
+			uChar = append(uChar[1:], char)
 		}
 		length2count[k]++
 	}
@@ -517,7 +522,7 @@ func (npylm *NPYLM) Train(dataContainer *DataContainer) {
 		npylm.addWordSeqAsCustomer(wordSeq)
 	}
 	bar.Finish()
-	npylm.poissonCorrection()
+	// npylm.poissonCorrection()
 	npylm.estimateHyperPrameters()
 	npylm.vpylm.hpylm.estimateHyperPrameters()
 	return

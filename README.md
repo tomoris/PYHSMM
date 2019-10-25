@@ -29,7 +29,7 @@ gopy build -vm=`which python3` -output=pylib github.com/tomoris/PYHSMM/bayselm
 Training language model.  
 `./main lm --model hpylm --maxNgram 2 --trainFile data/alice.train.txt --testFile alice.test.txt`  
 Training word segmentation model without labeled data.  
-`./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw`  
+`./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw --threads 8 -- saveFile alice_npylm.model`  
 
 ### for Python Extention (if you want)
 ```
@@ -55,20 +55,20 @@ pyhsmm: Pitman-Yor Hidden SemiMarkov Model (unsupervised word segmentation and P
 ### Language Model
 We evaluated the language models of them on BCCWJ. The definition of words is super short word unit. Size of training sentences is 57,281. Size of test sentences is 3,024. We note that npylm and pyhsmm were smoothed by charcter level language model. It means unfair comparison but we show the results.
 
-|Model   |perplexty   |n   |number of POS tags   |
-|:---:   |---:        |---:|---:|
-|ngram   |409.9   |3|-|
-|hpylm   |130.4   |3|-|
-|vpylm   |131.3   |8|-|
-|npylm   |199.9   |2|-|
-|pyhsmm  |7294.0  |2|10|
+| Model  | perplexty |    n | number of POS tags |
+| :----: | --------: | ---: | -----------------: |
+| ngram  |     409.9 |    3 |                  - |
+| hpylm  |     130.4 |    3 |                  - |
+| vpylm  |     131.3 |    8 |                  - |
+| npylm  |     199.9 |    2 |                  - |
+| pyhsmm |    7294.0 |    2 |                 10 |
 
 ### Unsupervised Word Segmentation
 
-|Model   |Precision   |Recall   |F-score
-|:---:   |---:        |---:     |---:
-|npylm   |?   |? |? |
-|pyhsmm  |?   |? |? |
+| Model  | Precision | Recall | F-score |
+| :----: | --------: | -----: | ------: |
+| npylm  |         ? |      ? |       ? |
+| pyhsmm |         ? |      ? |       ? |
 
 
 ## References

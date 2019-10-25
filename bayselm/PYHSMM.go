@@ -91,7 +91,7 @@ func (pyhsmm *PYHSMM) TrainWordSegmentationAndPOSTagging(dataContainer *DataCont
 	}
 	bar.Finish()
 
-	pyhsmm.npylms[0].poissonCorrection()
+	// pyhsmm.npylms[0].poissonCorrection()
 	pyhsmm.npylms[0].vpylm.hpylm.estimateHyperPrameters()
 	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
 		pyhsmm.npylms[pos].estimateHyperPrameters()
@@ -557,7 +557,7 @@ func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
 	}
 	bar.Finish()
 
-	pyhsmm.npylms[0].poissonCorrection()                  // 文字VPYLMは共通のものだけ
+	// pyhsmm.npylms[0].poissonCorrection()                  // 文字VPYLMは共通のものだけ
 	pyhsmm.npylms[0].vpylm.hpylm.estimateHyperPrameters() // 文字VPYLMは共通のものだけ
 	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
 		pyhsmm.npylms[pos].estimateHyperPrameters()
@@ -594,9 +594,6 @@ func (pyhsmm *PYHSMM) ReturnMaxN() int {
 // Save returns json.Marshal(pyhsmmJSON) and pyhsmmJSON.
 // pyhsmmJSON is struct to save. its variables can be exported.
 func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
-	for k, v := range pyhsmm.npylms[0].restaurants {
-		fmt.Println(k, v)
-	}
 	pyhsmmJSON := &pYHSMMJSON{
 		Npylms: func(pyhsmm *PYHSMM) []*nPYLMJSON {
 			npylmsJSON := make([]*nPYLMJSON, 0, len(pyhsmm.npylms))

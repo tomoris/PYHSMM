@@ -43,6 +43,9 @@ var (
 	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("100").Int()
 	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("128").Int()
 	threads       = args.Flag("threads", "hyper-parameter in NPYLM - PYHSMM").Default("8").Int()
+
+	saveFile   = args.Flag("saveFile", "file path to save model").String()
+	saveFormat = args.Flag("saveFormat", "model save format").Default("notindent").Enum("notindent", "indent")
 )
 
 func trainLanguageModel() {
@@ -61,7 +64,7 @@ func trainLanguageModel() {
 }
 
 //export trainWordSegmentation
-func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int) {
+func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int, saveFile string, saveFormat string) {
 	runtime.GOMAXPROCS(threads)
 	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base)
 	if !ok {
@@ -77,19 +80,22 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initial
 		// 	fmt.Println("test", wordSeqs[i])
 		// }
 	}
-	_, modelJSON := model.Save()
-	modelJSONIndent, err := json.MarshalIndent(modelJSON, "", "    ")
-	ioutil.WriteFile("model.json", modelJSONIndent, 0644)
-	if err != nil {
-		panic("save model error")
+	if saveFile != "" {
+		fmt.Println("save model")
+		modelJSONByte, modelJSON := model.Save()
+		if saveFormat == "indent" {
+			var err error
+			modelJSONByte, err = json.MarshalIndent(modelJSON, "", " ")
+			if err != nil {
+				panic("save model error")
+			}
+		}
+		fmt.Println("save model (write to file)")
+		err := ioutil.WriteFile(saveFile+".json", modelJSONByte, 0644)
+		if err != nil {
+			panic("save model error")
+		}
 	}
-	v, _ := ioutil.ReadFile("model.json")
-	newmodel := new(bayselm.PYHSMM)
-	newmodel2 := new(bayselm.NPYLM)
-	newmodel3 := &bayselm.NPYLM{}
-	fmt.Println(newmodel2)
-	fmt.Println(newmodel3)
-	newmodel.Load(v)
 	return
 }
 
@@ -99,7 +105,7 @@ func main() {
 	case lm.FullCommand():
 		trainLanguageModel()
 	case ws.FullCommand():
-		trainWordSegmentation(*modelForWS, *trainFilePathForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize, *epoch, *threads, *batch)
+		trainWordSegmentation(*modelForWS, *trainFilePathForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize, *epoch, *threads, *batch, *saveFile, *saveFormat)
 	}
 	return
 }
