@@ -11,10 +11,6 @@ import (
 	"github.com/tomoris/PYHSMM/bayselm"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
-import (
-	"encoding/json"
-	"io/ioutil"
-)
 
 var (
 	args = kingpin.New("bayselm", "Baysian n-gram language model.")
@@ -60,6 +56,13 @@ func trainLanguageModel() {
 	}
 	perplexity := bayselm.CalcPerplexity(model, dataContainerForTest)
 	fmt.Println("Perplexity = ", perplexity)
+	if *saveFile != "" {
+		bayselm.Save(model, *saveFile, *saveFormat)
+		// セーブしたものと同じモデルをロードできるかの確認
+		// loadModel := bayselm.Load(*modelForLM, *saveFile)
+		// perplexity := bayselm.CalcPerplexity(loadModel, dataContainerForTest)
+		// fmt.Println("Perplexity = ", perplexity)
+	}
 	return
 }
 
@@ -74,27 +77,29 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initial
 	model.Initialize(dataContainer)
 	for e := 0; e < epoch; e++ {
 		model.TrainWordSegmentation(dataContainer, threads, batch)
-		// testSize := 50
-		// wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
+		testSize := 10
+		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
+		for i := 0; i < testSize; i++ {
+			fmt.Println("test", wordSeqs[i])
+		}
+	}
+	if saveFile != "" {
+		bayselm.Save(model, saveFile, saveFormat)
+		// セーブしたものと同じモデルをロードできるかの確認
+		// var loadModel bayselm.UnsupervisedWSM = bayselm.Load(modelForWS, saveFile).(bayselm.UnsupervisedWSM)
+		// testSize := 10
+		// wordSeqs := loadModel.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
 		// for i := 0; i < testSize; i++ {
 		// 	fmt.Println("test", wordSeqs[i])
 		// }
-	}
-	if saveFile != "" {
-		fmt.Println("save model")
-		modelJSONByte, modelJSON := model.Save()
-		if saveFormat == "indent" {
-			var err error
-			modelJSONByte, err = json.MarshalIndent(modelJSON, "", " ")
-			if err != nil {
-				panic("save model error")
-			}
-		}
-		fmt.Println("save model (write to file)")
-		err := ioutil.WriteFile(saveFile+".json", modelJSONByte, 0644)
-		if err != nil {
-			panic("save model error")
-		}
+		// for e := 0; e < epoch; e++ {
+		// 	model.TrainWordSegmentation(dataContainer, threads, batch)
+		// 	testSize := 10
+		// 	wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
+		// 	for i := 0; i < testSize; i++ {
+		// 		fmt.Println("test", wordSeqs[i])
+		// 	}
+		// }
 	}
 	return
 }

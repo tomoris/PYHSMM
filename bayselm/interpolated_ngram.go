@@ -127,3 +127,17 @@ func (ngram *Ngram) ReturnNgramProb(word string, u context) float64 {
 func (ngram *Ngram) ReturnMaxN() int {
 	return ngram.maxN
 }
+
+func (ngram *Ngram) save() ([]byte, interface{}) {
+	if true {
+		panic("not implemented error")
+	}
+	return nil, nil
+}
+
+func (ngram *Ngram) load([]byte) {
+	if true {
+		panic("not implemented error")
+	}
+	return
+}

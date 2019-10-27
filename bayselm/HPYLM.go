@@ -498,7 +498,7 @@ func (hpylm *HPYLM) ReturnMaxN() int {
 
 // Save returns json.Marshal(hpylmJSON) and hpylmJSON.
 // hpylmJSON is struct to save. its variables can be exported.
-func (hpylm *HPYLM) Save() ([]byte, interface{}) {
+func (hpylm *HPYLM) save() ([]byte, interface{}) {
 	hpylmJSON := &hPYLMJSON{
 		Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
 			rstsJSON := make(map[string]*restaurantJSON)
@@ -526,7 +526,7 @@ func (hpylm *HPYLM) Save() ([]byte, interface{}) {
 }
 
 // Load hpylm.
-func (hpylm *HPYLM) Load(v []byte) {
+func (hpylm *HPYLM) load(v []byte) {
 	hpylmJSON := new(hPYLMJSON)
 	err := json.Unmarshal(v, &hpylmJSON)
 	if err != nil {

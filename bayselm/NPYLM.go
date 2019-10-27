@@ -544,7 +544,7 @@ func (npylm *NPYLM) ReturnMaxN() int {
 
 // Save returns json.Marshal(npylmJSON) and npylmJSON.
 // npylmJSON is struct to save. its variables can be exported.
-func (npylm *NPYLM) Save() ([]byte, interface{}) {
+func (npylm *NPYLM) save() ([]byte, interface{}) {
 	npylmJSON := &nPYLMJSON{
 		hPYLMJSON: &hPYLMJSON{Restaurants: func(rsts map[string]*restaurant) map[string]*restaurantJSON {
 			rstsJSON := make(map[string]*restaurantJSON)
@@ -566,7 +566,7 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 		},
 
 		Vpylm: func(npylm *NPYLM) *vPYLMJSON {
-			_, vpylmJSONInterface := npylm.vpylm.Save()
+			_, vpylmJSONInterface := npylm.vpylm.save()
 			vpylmJSON, ok := vpylmJSONInterface.(*vPYLMJSON)
 			if !ok {
 				panic("save error in NPYLM")
@@ -583,8 +583,8 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 
 		Poisson:     npylm.poisson,
 		Length2prob: npylm.length2prob,
-		Word2sampledDepthMemory: func(npylm *NPYLM) map[string]interface{} {
-			word2sampledDepthMemory := make(map[string]interface{})
+		Word2sampledDepthMemory: func(npylm *NPYLM) map[string][][]int {
+			word2sampledDepthMemory := make(map[string][][]int)
 			for key, value := range npylm.word2sampledDepthMemory {
 				word2sampledDepthMemory[key] = value
 			}
@@ -599,13 +599,12 @@ func (npylm *NPYLM) Save() ([]byte, interface{}) {
 }
 
 // Load npylm.
-func (npylm *NPYLM) Load(v []byte) {
-	npylmJSON := new(nPYLMJSON)
+func (npylm *NPYLM) load(v []byte) {
+	npylmJSON := &nPYLMJSON{hPYLMJSON: &hPYLMJSON{Restaurants: make(map[string]*restaurantJSON)}}
 	err := json.Unmarshal(v, &npylmJSON)
 	if err != nil {
 		panic("load error in NPYLM")
 	}
-
 	// load npylm.restaurants
 	// 一度map[string]*restaurantJSON を作ってから代入だとエラーになる (nil pointer)
 	for key, rstJSON := range npylmJSON.Restaurants {
@@ -627,6 +626,12 @@ func (npylm *NPYLM) Load(v []byte) {
 	npylm.betaB = npylmJSON.BetaB
 	npylm.Base = npylmJSON.Base
 
+	vpylmV, err := json.Marshal(&npylmJSON.Vpylm)
+	if err != nil {
+		panic("load error in load vpylm in NPYLM")
+	}
+	npylm.vpylm.load(vpylmV)
+
 	npylm.maxNgram = npylmJSON.MaxNgram
 	npylm.maxWordLength = npylmJSON.MaxWordLength
 	npylm.bos = npylmJSON.Bos
@@ -639,7 +644,7 @@ func (npylm *NPYLM) Load(v []byte) {
 	npylm.word2sampledDepthMemory = func(npylmJSON *nPYLMJSON) map[string][][]int {
 		word2sampledDepthMemory := make(map[string][][]int)
 		for key, value := range npylmJSON.Word2sampledDepthMemory {
-			word2sampledDepthMemory[key] = value.([][]int)
+			word2sampledDepthMemory[key] = value
 		}
 		return word2sampledDepthMemory
 	}(npylmJSON)

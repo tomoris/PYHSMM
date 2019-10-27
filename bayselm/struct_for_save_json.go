@@ -48,12 +48,12 @@ type nPYLMJSON struct {
 	Poisson     distuv.Poisson
 	Length2prob []float64
 
-	Word2sampledDepthMemory map[string]interface{}
+	Word2sampledDepthMemory map[string][][]int
 }
 
 type pYHSMMJSON struct {
 	Npylms   []*nPYLMJSON
-	PosHpylm interface{}
+	PosHpylm *hPYLMJSON
 
 	MaxNgram      int
 	MaxWordLength int

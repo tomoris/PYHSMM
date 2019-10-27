@@ -593,12 +593,12 @@ func (pyhsmm *PYHSMM) ReturnMaxN() int {
 
 // Save returns json.Marshal(pyhsmmJSON) and pyhsmmJSON.
 // pyhsmmJSON is struct to save. its variables can be exported.
-func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
+func (pyhsmm *PYHSMM) save() ([]byte, interface{}) {
 	pyhsmmJSON := &pYHSMMJSON{
 		Npylms: func(pyhsmm *PYHSMM) []*nPYLMJSON {
 			npylmsJSON := make([]*nPYLMJSON, 0, len(pyhsmm.npylms))
 			for _, npylm := range pyhsmm.npylms {
-				_, npylmJSONInterface := npylm.Save()
+				_, npylmJSONInterface := npylm.save()
 				npylmJSON, ok := npylmJSONInterface.(*nPYLMJSON)
 				if !ok {
 					panic("save error in PYHSMM")
@@ -607,9 +607,9 @@ func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
 			}
 			return npylmsJSON
 		}(pyhsmm),
-		PosHpylm: func(pyhsmm *PYHSMM) interface{} {
-			_, posHpylmJSON := pyhsmm.posHpylm.Save()
-			return posHpylmJSON
+		PosHpylm: func(pyhsmm *PYHSMM) *hPYLMJSON {
+			_, posHpylmJSON := pyhsmm.posHpylm.save()
+			return posHpylmJSON.(*hPYLMJSON)
 		}(pyhsmm),
 
 		MaxNgram:      pyhsmm.maxNgram,
@@ -631,8 +631,17 @@ func (pyhsmm *PYHSMM) Save() ([]byte, interface{}) {
 }
 
 // Load pyhsmm.
-func (pyhsmm *PYHSMM) Load(v []byte) {
-	pyhsmmJSON := new(pYHSMMJSON)
+func (pyhsmm *PYHSMM) load(v []byte) {
+	// 本当はposSizeだけのnpylmをスライスに格納させて読みこみたいが、面倒なので、適当に大きな値分のnpylmを作ってjsonを読む。
+	// そうしないとエラー、最終的なモデルのnpylmsは適切な大きさで返される
+	tmpPosSize := 100
+	Npylms := make([]*nPYLMJSON, 0, tmpPosSize)
+	for i := 0; i < tmpPosSize; i++ {
+		npylmJSON := &nPYLMJSON{hPYLMJSON: &hPYLMJSON{Restaurants: make(map[string]*restaurantJSON)}}
+		Npylms = append(Npylms, npylmJSON)
+	}
+
+	pyhsmmJSON := &pYHSMMJSON{Npylms: Npylms, PosHpylm: &hPYLMJSON{Restaurants: make(map[string]*restaurantJSON)}}
 	err := json.Unmarshal(v, &pyhsmmJSON)
 	if err != nil {
 		panic("load error in PYHSMM")
@@ -646,12 +655,18 @@ func (pyhsmm *PYHSMM) Load(v []byte) {
 			}
 			// npylm := NewNPYLM(npylmJSON.Theta[0], npylmJSON.D[0], npylmJSON.GammaA[0], npylmJSON.GammaB[0], npylmJSON.BetaA[0], npylmJSON.BetaB[0], 0.1, 0.1, npylmJSON.MaxNgram, npylmJSON.MaxWordLength)
 			// restaurants まで作ってあげないと、あとで nil pointer にアクセスしてエラーになる
-			npylm := &NPYLM{HPYLM: &HPYLM{restaurants: make(map[string]*restaurant)}}
-			npylm.Load(npylmV)
+			npylm := &NPYLM{HPYLM: &HPYLM{restaurants: make(map[string]*restaurant)}, vpylm: &VPYLM{hpylm: &HPYLM{restaurants: make(map[string]*restaurant)}}}
+			npylm.load(npylmV)
 			npylms = append(npylms, npylm)
 		}
 		return npylms
 	}(pyhsmmJSON)
+
+	posHpylmV, err := json.Marshal(&pyhsmmJSON.PosHpylm)
+	if err != nil {
+		panic("load error in load posHpylm in PYHSMM")
+	}
+	pyhsmm.posHpylm.load(posHpylmV)
 
 	pyhsmm.maxNgram = pyhsmmJSON.MaxNgram
 	pyhsmm.maxWordLength = pyhsmmJSON.MaxWordLength

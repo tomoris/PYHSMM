@@ -1,6 +1,8 @@
 package bayselm
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"math"
 )
 
@@ -16,8 +18,8 @@ type UnsupervisedWSM interface {
 	TrainWordSegmentation(*DataContainer, int, int)
 	TestWordSegmentation([][]rune, int) [][]string
 	Initialize(*DataContainer)
-	Save() ([]byte, interface{})
-	Load([]byte)
+	save() ([]byte, interface{})
+	load([]byte)
 }
 
 // GenerateUnsupervisedWSM returns UnsupervisedWSM instance.
@@ -40,6 +42,8 @@ type NgramLM interface {
 	Train(*DataContainer)
 	ReturnNgramProb(string, context) float64
 	ReturnMaxN() int
+	save() ([]byte, interface{})
+	load([]byte)
 }
 
 // GenerateNgramLM returns NgramLM instance.
@@ -93,4 +97,72 @@ func CalcPerplexity(model NgramLM, dataContainer *DataContainer) float64 {
 	perplexity := math.Exp2(entropy)
 
 	return perplexity
+}
+
+// Save model.
+func Save(model interface{}, saveFile string, saveFormat string) {
+	var modelNgramLM NgramLM
+	modelNgramLM = model.(NgramLM)
+	modelJSONByte, modelJSON := modelNgramLM.save()
+	if saveFormat == "indent" {
+		var err error
+		modelJSONByte, err = json.MarshalIndent(modelJSON, "", " ")
+		if err != nil {
+			panic("save model error")
+		}
+	} else if saveFormat == "indent" {
+		// pass
+	} else {
+		panic("save model error. please input corrent saveFormat")
+	}
+	err := ioutil.WriteFile(saveFile, modelJSONByte, 0644)
+	if err != nil {
+		panic("save model error")
+	}
+	return
+}
+
+// Load model.
+func Load(modelName string, loadFile string) NgramLM {
+	var model NgramLM
+	ok := false
+	// 以下のパラメータは後で更新されるので適当で良い
+	initialTheta := 2.0
+	initialD := 0.1
+	gammaA := 0.1
+	gammaB := 0.1
+	betaA := 0.1
+	betaB := 0.1
+	alpha := 0.1
+	beta := 0.1
+	maxNgram := 2
+	maxWordLength := 10
+	PosSize := 10
+	base := 0.1
+	switch modelName {
+	case "ngram":
+		model = &Ngram{}
+		ok = true
+	case "hpylm":
+		model = NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base)
+		ok = true
+	case "vpylm":
+		model = NewVPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base, alpha, beta)
+		ok = true
+	case "npylm":
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		ok = true
+	case "pyhsmm":
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		ok = true
+	}
+	if !ok {
+		panic("load model initailize error")
+	}
+	modelJSONByte, err := ioutil.ReadFile(loadFile)
+	if err != nil {
+		panic("load model file error")
+	}
+	model.load(modelJSONByte)
+	return model
 }
