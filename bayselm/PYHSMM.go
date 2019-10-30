@@ -107,7 +107,7 @@ func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]s
 	return wordSeqs
 }
 
-// TestWordSegmentationForPython inferences word segmentation and their POS tags from input unsegmented texts, and returns word sequence.
+// TestWordSegmentationForPython inferences word segmentation and their POS tags from input unsegmented texts, and returns data_container which contain segmented texts.
 func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]rune, threadsNum int) *DataContainer {
 	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
 	dataContainer := new(DataContainer)

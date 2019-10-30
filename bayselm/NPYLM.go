@@ -221,6 +221,17 @@ func (npylm *NPYLM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]str
 	return wordSeqs
 }
 
+// TestWordSegmentationForPython inferences word segmentation, and returns data_container which contain segmented texts.
+func (npylm *NPYLM) TestWordSegmentationForPython(sents [][]rune, threadsNum int) *DataContainer {
+	wordSeqs := npylm.TestWordSegmentation(sents, threadsNum)
+	dataContainer := new(DataContainer)
+	for _, wordSeq := range wordSeqs {
+		dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
+	}
+	dataContainer.Size = len(wordSeqs)
+	return dataContainer
+}
+
 func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 	// initialize forwardScore
 	forwardScore := make(forwardScoreType, len(sent), len(sent))

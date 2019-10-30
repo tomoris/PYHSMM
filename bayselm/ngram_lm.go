@@ -100,9 +100,9 @@ func CalcPerplexity(model NgramLM, dataContainer *DataContainer) float64 {
 }
 
 // Save model.
-func Save(model interface{}, saveFile string, saveFormat string) {
-	var modelNgramLM NgramLM
-	modelNgramLM = model.(NgramLM)
+func Save(modelNgramLM NgramLM, saveFile string, saveFormat string) {
+	// var modelNgramLM NgramLM
+	// modelNgramLM = model.(NgramLM)
 	modelJSONByte, modelJSON := modelNgramLM.save()
 	if saveFormat == "indent" {
 		var err error
@@ -110,7 +110,7 @@ func Save(model interface{}, saveFile string, saveFormat string) {
 		if err != nil {
 			panic("save model error")
 		}
-	} else if saveFormat == "indent" {
+	} else if saveFormat == "notindent" {
 		// pass
 	} else {
 		panic("save model error. please input corrent saveFormat")

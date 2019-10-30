@@ -35,8 +35,7 @@ Training word segmentation model without labeled data.
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./pylib
 export PYTHONPATH=$PYTHONPATH:./pylib
-go build -o trainWordSegmentation.so -buildmode=c-shared main.go
-python train_ws.py --model npylm --maxNgram 2 --train_file data/alice.raw
+python main.py --mode ws --model pyhsmm --trainFile data/alice.raw --posSize 5 --epoch 1 --saveFile model.json
 ```
 
 
@@ -62,7 +61,7 @@ We evaluated the language models of them on BCCWJ. The definition of words is su
 | vpylm  |     131.3 |    8 |                  - |
 | npylm  |     199.9 |    2 |                  - |
 | pyhsmm |     200.1 |    2 |                  1 |
-| pyhsmm |     ???.? |    2 |                 10 |
+| pyhsmm |     234.3 |    2 |                  5 |
 
 ### Unsupervised Word Segmentation
 

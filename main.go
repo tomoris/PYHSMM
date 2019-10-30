@@ -57,7 +57,7 @@ func trainLanguageModel() {
 	perplexity := bayselm.CalcPerplexity(model, dataContainerForTest)
 	fmt.Println("Perplexity = ", perplexity)
 	if *saveFile != "" {
-		bayselm.Save(model, *saveFile, *saveFormat)
+		bayselm.Save(model.(bayselm.NgramLM), *saveFile, *saveFormat)
 		// セーブしたものと同じモデルをロードできるかの確認
 		// loadModel := bayselm.Load(*modelForLM, *saveFile)
 		// perplexity := bayselm.CalcPerplexity(loadModel, dataContainerForTest)
@@ -66,7 +66,6 @@ func trainLanguageModel() {
 	return
 }
 
-//export trainWordSegmentation
 func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int, saveFile string, saveFormat string) {
 	runtime.GOMAXPROCS(threads)
 	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base)
@@ -84,7 +83,7 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initial
 		}
 	}
 	if saveFile != "" {
-		bayselm.Save(model, saveFile, saveFormat)
+		bayselm.Save(model.(bayselm.NgramLM), saveFile, saveFormat)
 		// セーブしたものと同じモデルをロードできるかの確認
 		// var loadModel bayselm.UnsupervisedWSM = bayselm.Load(modelForWS, saveFile).(bayselm.UnsupervisedWSM)
 		// testSize := 10
