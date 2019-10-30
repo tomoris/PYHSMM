@@ -444,9 +444,10 @@ func (pyhsmm *PYHSMM) addWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	u[0] = wordSeq[len(wordSeq)-1]
 	// base = pyhsmm.npylms[pyhsmm.eosPos].vpylm.hpylm.Base
 	base = pyhsmm.npylms[0].vpylm.hpylm.Base
-	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[0].addCustomerBase)
+	pyhsmm.npylms[pyhsmm.eosPos].AddCustomer(pyhsmm.eos, u, base, pyhsmm.npylms[0].addCustomerBaseNull)
 	uPos[0] = strconv.Itoa(posSeq[len(posSeq)-1])
 	pyhsmm.posHpylm.AddCustomer(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base, pyhsmm.posHpylm.addCustomerBaseNull)
+	return
 }
 
 func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
@@ -466,9 +467,10 @@ func (pyhsmm *PYHSMM) removeWordSeqAsCustomer(wordSeq context, posSeq []int) {
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
-	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[0].removeCustomerBase)
+	pyhsmm.npylms[pyhsmm.eosPos].RemoveCustomer(pyhsmm.eos, u, pyhsmm.npylms[0].removeCustomerBaseNull)
 	uPos[0] = strconv.Itoa(posSeq[len(posSeq)-1])
 	pyhsmm.posHpylm.RemoveCustomer(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.addCustomerBaseNull)
+	return
 }
 
 // Initialize initializes parameters.
@@ -534,10 +536,10 @@ func (pyhsmm *PYHSMM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSe
 
 // Train train n-gram parameters from given word sequences.
 func (pyhsmm *PYHSMM) Train(dataContainer *DataContainer) {
-	removeFlag := true
-	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
-		if len(pyhsmm.npylms[pos].vpylm.hpylm.restaurants) == 0 { // epoch == 0
-			removeFlag = false
+	removeFlag := false
+	for pos := 0; pos < pyhsmm.PosSize; pos++ {
+		if len(pyhsmm.npylms[pos].vpylm.hpylm.restaurants) != 0 { // epoch == 0
+			removeFlag = true
 		}
 	}
 	bar := pb.StartNew(dataContainer.Size)
@@ -574,12 +576,12 @@ func (pyhsmm *PYHSMM) ReturnNgramProb(word string, u context) float64 {
 	sumPpos := 0.0
 	base := pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 	uPos := context{""}
-	pPosBos, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base)
+	pPosEos, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pyhsmm.eosPos), uPos, pyhsmm.posHpylm.Base)
 	for pos := 0; pos < pyhsmm.PosSize; pos++ {
 		// base := pyhsmm.npylms[pos].calcBase(word)
 		pGivenPos, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
 		pPos, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
-		p += pGivenPos * (pPos / (1.0 - pPosBos))
+		p += pGivenPos * (pPos / (1.0 - pPosEos))
 		sumPpos += pPos
 	}
 	return p + math.SmallestNonzeroFloat64

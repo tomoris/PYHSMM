@@ -351,7 +351,7 @@ func (npylm *NPYLM) addWordSeqAsCustomer(wordSeq context) {
 
 	u[0] = wordSeq[len(wordSeq)-1]
 	base = npylm.vpylm.hpylm.Base
-	npylm.AddCustomer(npylm.eos, u, base, npylm.addCustomerBase)
+	npylm.AddCustomer(npylm.eos, u, base, npylm.addCustomerBaseNull)
 }
 
 func (npylm *NPYLM) removeWordSeqAsCustomer(wordSeq context) {
@@ -366,7 +366,7 @@ func (npylm *NPYLM) removeWordSeqAsCustomer(wordSeq context) {
 	}
 
 	u[0] = wordSeq[len(wordSeq)-1]
-	npylm.RemoveCustomer(npylm.eos, u, npylm.removeCustomerBase)
+	npylm.RemoveCustomer(npylm.eos, u, npylm.removeCustomerBaseNull)
 }
 
 // Initialize initializes parameters.
