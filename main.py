@@ -7,6 +7,7 @@
 import argparse
 import signal
 
+# from pylib import go
 from pylib import bayselm
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -23,6 +24,7 @@ def train_word_segmentation(modelName, trainFilePathForWS, initialTheta=2.0, ini
         model = bayselm.NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta,
                                   maxNgram, maxWordLength, posSize)
     data_container = bayselm.NewDataContainer(trainFilePathForWS)
+    # data_container = bayselm.NewDataContainerFromSents(go.Slice_string(['aiueo, abcdefg']))
     model.Initialize(data_container)
     for e in range(epoch):
         model.TrainWordSegmentation(data_container, threads, batch)

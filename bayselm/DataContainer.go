@@ -16,6 +16,27 @@ type DataContainer struct {
 	Size                  int
 }
 
+// NewDataContainerFromSents returns DataContainer instance.
+// input file is required unsegmented texts (not split space)
+func NewDataContainerFromSents(sents []string) *DataContainer {
+	dataContainer := new(DataContainer)
+
+	count := 0
+	for _, sentStr := range sents {
+		loweredStringSent := strings.ToLower(sentStr)
+		sent := []rune(loweredStringSent)
+		if len(sent) > 0 {
+			dataContainer.Sents = append(dataContainer.Sents, sent)
+			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
+			dataContainer.SamplingPosSeqs = append(dataContainer.SamplingPosSeqs, make([]int, 0, len(sent)))
+			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(sent)))
+			count++
+		}
+	}
+	dataContainer.Size = count
+	return dataContainer
+}
+
 // NewDataContainer returns DataContainer instance.
 // input file is required unsegmented texts (not split space)
 func NewDataContainer(filePath string) *DataContainer {

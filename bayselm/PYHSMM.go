@@ -192,6 +192,102 @@ func (pyhsmm *PYHSMM) forwardForSamplingPosOnly(goldWordSeq context) [][]float64
 	return forwardScore
 }
 
+func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []rune) [][][][]float64 {
+	// initialize eachScore
+	type eachScoreForWordAndUAndPosType [][][][]float64
+	eachScoreForWord := make(eachScoreForWordAndUAndPosType, len(sent), len(sent))
+	for t := 0; t < len(sent); t++ {
+		eachScoreForWord[t] = make([][][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
+		for k := 0; k < pyhsmm.maxWordLength; k++ {
+			eachScoreForWord[t][k] = make([][]float64, pyhsmm.PosSize, pyhsmm.PosSize)
+			for z := 0; z < pyhsmm.PosSize; z++ {
+				eachScoreForWord[t][k][z] = make([]float64, pyhsmm.maxWordLength+1, pyhsmm.maxWordLength+1) // + 1 is for bos
+				for j := 0; j < pyhsmm.maxWordLength+1; j++ {
+					eachScoreForWord[t][k][z][j] = math.Inf(-1)
+				}
+			}
+		}
+	}
+
+	word := string("")
+	u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
+	uPos := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
+	base := float64(0.0)
+	for t := 0; t < len(sent); t++ {
+		for k := 0; k < pyhsmm.maxWordLength; k++ {
+			if t-k >= 0 {
+				word = string(sent[(t - k) : t+1])
+				base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+			} else {
+				continue
+			}
+			for pos := 0; pos < pyhsmm.PosSize; pos++ {
+				if t-k == 0 {
+					u[0] = pyhsmm.bos
+					uPos[0] = strconv.Itoa(pyhsmm.bosPos)
+					wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+					score := math.Log(wordScore)
+					if math.IsNaN(score) {
+						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), word (%v)", wordScore, word)
+						panic(errMsg)
+					}
+					eachScoreForWord[t][k][pos][pyhsmm.maxWordLength] = score
+					continue
+				}
+				for j := 0; j < pyhsmm.maxWordLength; j++ {
+					if t-k-(j+1) >= 0 {
+						u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+						score := math.Log(wordScore)
+						if math.IsNaN(score) {
+							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), word (%v)", wordScore, word)
+							panic(errMsg)
+						}
+						eachScoreForWord[t][k][pos][j] = score
+					} else {
+						continue
+					}
+				}
+			}
+		}
+	}
+
+	return eachScoreForWord
+}
+
+func (pyhsmm *PYHSMM) calcEachScoreForPos() [][]float64 {
+	type eachScoreForPosType [][]float64
+	eachScoreForPos := make(eachScoreForPosType, pyhsmm.PosSize, pyhsmm.PosSize+1)
+	for pos := 0; pos < pyhsmm.PosSize; pos++ {
+		eachScoreForPos[pos] = make([]float64, pyhsmm.PosSize+1, pyhsmm.PosSize+1)
+	}
+
+	uPos := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
+	for pos := 0; pos < pyhsmm.PosSize; pos++ {
+		uPos[0] = strconv.Itoa(pyhsmm.bosPos)
+		posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
+		score := math.Log(posScore)
+		if math.IsNaN(score) {
+			errMsg := fmt.Sprintf("forward error! score is NaN. posScore (%v), pos (%v), prevPos (%v)", posScore, pos, pyhsmm.bosPos)
+			panic(errMsg)
+		}
+		eachScoreForPos[pos][pyhsmm.PosSize] = score
+
+		for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
+			uPos[0] = strconv.Itoa(prevPos)
+			posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
+			score := math.Log(posScore)
+			if math.IsNaN(score) {
+				errMsg := fmt.Sprintf("forward error! score is NaN. posScore (%v), pos (%v), prevPos (%v)", posScore, pos, prevPos)
+				panic(errMsg)
+			}
+			eachScoreForPos[pos][prevPos] = score
+		}
+	}
+
+	return eachScoreForPos
+}
+
 func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 	// initialize forwardScore
 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
@@ -255,7 +351,7 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 					errMsg := fmt.Sprintf("forward error! logsumexpScore is NaN. forwardScoreTmp (%v), word (%v)", forwardScoreTmp, word)
 					panic(errMsg)
 				}
-				forwardScore[t][k][pos] = logsumexpScore // - math.Log(float64(len(forwardScoreTmp)))
+				forwardScore[t][k][pos] = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
 			}
 		}
 	}
@@ -682,4 +778,104 @@ func (pyhsmm *PYHSMM) load(v []byte) {
 	pyhsmm.bosPos = pyhsmmJSON.BosPos
 
 	return
+}
+
+// EachScoreForPython is for python bindings.
+type EachScoreForPython struct {
+	eachScoreForWord [][][][][]float64
+	eachScoreForPos  [][]float64
+}
+
+// GetWordScore returns log wordScore.
+func (pyStrcut *EachScoreForPython) GetWordScore(i, t, k, z, j int) float64 {
+	jj := j
+	if j == -1 {
+		jj = len(pyStrcut.eachScoreForWord[0][0])
+	}
+
+	if i >= len(pyStrcut.eachScoreForWord) {
+		errMsg := fmt.Sprintf("GetScore error i %v, max is %v", i, len(pyStrcut.eachScoreForWord))
+		panic(errMsg)
+	}
+	if t >= len(pyStrcut.eachScoreForWord[i]) {
+		errMsg := fmt.Sprintf("GetScore error t %v, max is %v", t, len(pyStrcut.eachScoreForWord[i]))
+		panic(errMsg)
+	}
+	if k >= len(pyStrcut.eachScoreForWord[i][t]) {
+		errMsg := fmt.Sprintf("GetScore error k %v, max is %v", k, len(pyStrcut.eachScoreForWord[i][t]))
+		panic(errMsg)
+	}
+	if z >= len(pyStrcut.eachScoreForWord[i][t][k]) {
+		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForWord[i][t][k]))
+		panic(errMsg)
+	}
+	if jj >= len(pyStrcut.eachScoreForWord[i][t][k][z]) {
+		errMsg := fmt.Sprintf("GetScore error jj %v, max is %v", jj, len(pyStrcut.eachScoreForWord[i][t][k][z]))
+		panic(errMsg)
+	}
+
+	wordScore := pyStrcut.eachScoreForWord[i][t][k][z][jj]
+	if math.IsNaN(wordScore) {
+		errMsg := fmt.Sprintf("calc error! score is NaN. wordScore (%v)", wordScore)
+		panic(errMsg)
+	}
+	return wordScore
+}
+
+// GetPosScore returns log score.
+func (pyStrcut *EachScoreForPython) GetPosScore(z, r int) float64 {
+	rr := r
+	if r == -1 {
+		rr = len(pyStrcut.eachScoreForWord[0][0][0])
+	}
+
+	if z >= len(pyStrcut.eachScoreForPos) {
+		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForPos))
+		panic(errMsg)
+	}
+	if rr >= len(pyStrcut.eachScoreForPos[z]) {
+		errMsg := fmt.Sprintf("GetScore error r %v, max is %v", r, len(pyStrcut.eachScoreForPos[z]))
+		panic(errMsg)
+	}
+
+	posScore := pyStrcut.eachScoreForPos[z][rr]
+	if math.IsNaN(posScore) {
+		errMsg := fmt.Sprintf("calc error! score is NaN. posScore (%v)", posScore)
+		panic(errMsg)
+	}
+	return posScore
+}
+
+// GetScore returns log score.
+func (pyStrcut *EachScoreForPython) GetScore(i, t, k, z, j, r int) float64 {
+
+	wordScore := pyStrcut.GetWordScore(i, t, k, z, j)
+	posScore := pyStrcut.GetPosScore(z, r)
+	score := wordScore + posScore
+	if math.IsNaN(score) {
+		errMsg := fmt.Sprintf("calc error! score is NaN. score (%v)", score)
+		panic(errMsg)
+	}
+	return score
+}
+
+// GetEachScore returns forward score for python bindings.
+func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreForPython {
+	eachScore := &EachScoreForPython{eachScoreForWord: make([][][][][]float64, len(sents), len(sents)), eachScoreForPos: pyhsmm.calcEachScoreForPos()}
+	ch := make(chan int, threadsNum)
+	wg := sync.WaitGroup{}
+	for i := range sents {
+		ch <- 1
+		wg.Add(1)
+		go func(i int) {
+			sentRune := []rune(sents[i])
+			eachScoreForWord := pyhsmm.calcEachScoreForWord(sentRune)
+			eachScore.eachScoreForWord[i] = eachScoreForWord
+			<-ch
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	return eachScore
 }
