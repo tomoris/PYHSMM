@@ -26,7 +26,7 @@ var (
 
 	maxNgram      = args.Flag("maxNgram", "hyper-parameter in HPYLM - PYHSMM").Default("2").Int()
 	initialTheta  = args.Flag("theta", "initial hyper-parameter in HPYLM - PYHSMM").Default("2.0").Float64()
-	initialD      = args.Flag("d", "initial hyper-parameter in HPYLM - PYHSMM").Default("0.1").Float64()
+	initialD      = args.Flag("d", "initial hyper-parameter in HPYLM - PYHSMM").Default("0.9").Float64()
 	gammaA        = args.Flag("gammaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	gammaB        = args.Flag("gammaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	betaA         = args.Flag("betaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
@@ -37,7 +37,7 @@ var (
 	maxWordLength = args.Flag("maxWordLength", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
 	posSize       = args.Flag("posSize", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
 	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("100").Int()
-	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("128").Int()
+	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("16").Int()
 	threads       = args.Flag("threads", "hyper-parameter in NPYLM - PYHSMM").Default("8").Int()
 
 	saveFile   = args.Flag("saveFile", "file path to save model").String()
@@ -73,13 +73,15 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, initial
 		panic("Building model error")
 	}
 	dataContainer := bayselm.NewDataContainer(trainFilePathForWS)
+	// dataContainer := bayselm.NewDataContainerFromAnnotatedData(trainFilePathForWS)
 	model.Initialize(dataContainer)
+	// model.InitializeFromAnnotatedData(dataContainer)
 	for e := 0; e < epoch; e++ {
 		model.TrainWordSegmentation(dataContainer, threads, batch)
-		testSize := 10
+		testSize := dataContainer.Size
 		wordSeqs := model.TestWordSegmentation(dataContainer.Sents[:testSize], threads)
 		for i := 0; i < testSize; i++ {
-			fmt.Println("test", wordSeqs[i])
+			fmt.Println(e, "test", wordSeqs[i])
 		}
 	}
 	if saveFile != "" {

@@ -289,6 +289,7 @@ func (pyhsmm *PYHSMM) calcEachScoreForPos() [][]float64 {
 }
 
 func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
+
 	// initialize forwardScore
 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
 	for t := 0; t < len(sent); t++ {
@@ -298,27 +299,23 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 		}
 	}
 
-	word := string("")
-	u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
-	uPos := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
-	base := float64(0.0)
+	eachScoreForWord := pyhsmm.calcEachScoreForWord(sent)
+	eachScoreForPos := pyhsmm.calcEachScoreForPos()
+
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
 			if t-k >= 0 {
-				word = string(sent[(t - k) : t+1])
-				base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+				//
 			} else {
 				continue
 			}
 			for pos := 0; pos < pyhsmm.PosSize; pos++ {
 				if t-k == 0 {
-					u[0] = pyhsmm.bos
-					uPos[0] = strconv.Itoa(pyhsmm.bosPos)
-					wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-					posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
-					score := math.Log(wordScore) + math.Log(posScore)
+					wordScoreLog := eachScoreForWord[t][k][pos][pyhsmm.maxWordLength]
+					posScoreLog := eachScoreForPos[pos][pyhsmm.PosSize]
+					score := wordScoreLog + posScoreLog
 					if math.IsNaN(score) {
-						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v)", wordScoreLog, posScoreLog)
 						panic(errMsg)
 					}
 					forwardScore[t][k][pos] = score
@@ -328,17 +325,16 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 				forwardScoreTmp := make([]float64, 0, pyhsmm.maxWordLength*pyhsmm.PosSize)
 				for j := 0; j < pyhsmm.maxWordLength; j++ {
 					if t-k-(j+1) >= 0 {
-						u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+						//
 					} else {
 						continue
 					}
 					for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
-						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
-						uPos[0] = strconv.Itoa(prevPos)
-						posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
-						score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][prevPos]
+						wordScoreLog := eachScoreForWord[t][k][pos][j]
+						posScoreLog := eachScoreForPos[pos][prevPos]
+						score := wordScoreLog + posScoreLog + forwardScore[t-(k+1)][j][prevPos]
 						if math.IsNaN(score) {
-							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+							errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v)", wordScoreLog, posScoreLog)
 							panic(errMsg)
 						}
 						forwardScoreTmp = append(forwardScoreTmp, score)
@@ -348,13 +344,71 @@ func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
 				logsumexpScore := pyhsmm.npylms[0].logsumexp(forwardScoreTmp)
 				logsumexpScore = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
 				if math.IsNaN(logsumexpScore) {
-					errMsg := fmt.Sprintf("forward error! logsumexpScore is NaN. forwardScoreTmp (%v), word (%v)", forwardScoreTmp, word)
+					errMsg := fmt.Sprintf("forward error! logsumexpScore is NaN. forwardScoreTmp (%v)", forwardScoreTmp)
 					panic(errMsg)
 				}
 				forwardScore[t][k][pos] = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
 			}
 		}
 	}
+
+	// word := string("")
+	// u := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
+	// uPos := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
+	// base := float64(0.0)
+	// for t := 0; t < len(sent); t++ {
+	// 	for k := 0; k < pyhsmm.maxWordLength; k++ {
+	// 		if t-k >= 0 {
+	// 			word = string(sent[(t - k) : t+1])
+	// 			base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
+	// 		} else {
+	// 			continue
+	// 		}
+	// 		for pos := 0; pos < pyhsmm.PosSize; pos++ {
+	// 			if t-k == 0 {
+	// 				u[0] = pyhsmm.bos
+	// 				uPos[0] = strconv.Itoa(pyhsmm.bosPos)
+	// 				wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+	// 				posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
+	// 				score := math.Log(wordScore) + math.Log(posScore)
+	// 				if math.IsNaN(score) {
+	// 					errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+	// 					panic(errMsg)
+	// 				}
+	// 				forwardScore[t][k][pos] = score
+	// 				continue
+	// 			}
+	// 			forwardScore[t][k][pos] = 0.0
+	// 			forwardScoreTmp := make([]float64, 0, pyhsmm.maxWordLength*pyhsmm.PosSize)
+	// 			for j := 0; j < pyhsmm.maxWordLength; j++ {
+	// 				if t-k-(j+1) >= 0 {
+	// 					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+	// 				} else {
+	// 					continue
+	// 				}
+	// 				for prevPos := 0; prevPos < pyhsmm.PosSize; prevPos++ {
+	// 					wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
+	// 					uPos[0] = strconv.Itoa(prevPos)
+	// 					posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(pos), uPos, pyhsmm.posHpylm.Base)
+	// 					score := math.Log(wordScore) + math.Log(posScore) + forwardScore[t-(k+1)][j][prevPos]
+	// 					if math.IsNaN(score) {
+	// 						errMsg := fmt.Sprintf("forward error! score is NaN. wordScore (%v), posScore, (%v), word (%v)", wordScore, posScore, word)
+	// 						panic(errMsg)
+	// 					}
+	// 					forwardScoreTmp = append(forwardScoreTmp, score)
+	// 				}
+	// 			}
+
+	// 			logsumexpScore := pyhsmm.npylms[0].logsumexp(forwardScoreTmp)
+	// 			logsumexpScore = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
+	// 			if math.IsNaN(logsumexpScore) {
+	// 				errMsg := fmt.Sprintf("forward error! logsumexpScore is NaN. forwardScoreTmp (%v), word (%v)", forwardScoreTmp, word)
+	// 				panic(errMsg)
+	// 			}
+	// 			forwardScore[t][k][pos] = logsumexpScore - math.Log(float64(len(forwardScoreTmp)))
+	// 		}
+	// 	}
+	// }
 
 	return forwardScore
 }
@@ -597,7 +651,10 @@ func (pyhsmm *PYHSMM) Initialize(dataContainer *DataContainer) {
 }
 
 // InitializeFromAnnotatedData initializes parameters from annotated texts.
-func (pyhsmm *PYHSMM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSeqs []context, samplingPosSeqs [][]int) {
+func (pyhsmm *PYHSMM) InitializeFromAnnotatedData(dataContainer *DataContainer) {
+	sents := dataContainer.Sents
+	samplingWordSeqs := dataContainer.SamplingWordSeqs
+	samplingPosSeqs := dataContainer.SamplingPosSeqs
 	for i := 0; i < len(samplingWordSeqs); i++ {
 		adjustedSamplingWordSeq := make(context, 0, len(sents[i]))
 		adjustedSamplingPosSeq := make([]int, 0, len(sents[i]))

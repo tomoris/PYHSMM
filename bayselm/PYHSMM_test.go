@@ -76,7 +76,7 @@ func TestPerformanceOfPYHSMM(t *testing.T) {
 	}
 
 	npylmDummy := NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8)
-	npylmDummy.InitializeFromAnnotatedData(dataContainerForTest.Sents, dataContainerForTest.SamplingWordSeqs)
+	npylmDummy.InitializeFromAnnotatedData(dataContainerForTest)
 	perplexityOfNpylm := CalcPerplexity(npylm, dataContainerForTest)
 	perplexityOfPyhsmm := CalcPerplexity(pyhsmm, dataContainerForTest)
 	if !(perplexityOfPyhsmm < perplexityOfNpylm) {

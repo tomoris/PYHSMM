@@ -7,7 +7,8 @@ This repository also contain other Bayesian n-gram based language models such as
 - Go: 12.5  
     - gonum.org/v1/gonum/stat/distuv  
     - github.com/cheggaaa/pb/v3  
-    - gopkg.in/alecthomas/kingpin.v2  
+    - gopkg.in/alecthomas/kingpin.v2 
+    - go get golang.org/x/tools/cmd/goimports   
     - github.com/go-python/gopy  
 
 - Python: 3 (we test the program in python 3.6)  
@@ -15,7 +16,7 @@ This repository also contain other Bayesian n-gram based language models such as
 
 ## Installing
 ```
-go get github.com/tomoris/PYHSMM.git
+go get github.com/tomoris/PYHSMM
 cd $GOPATH/src/github.com/tomoris/PYHSMM
 go build main.go
 ```
@@ -29,7 +30,7 @@ gopy build -vm=`which python3` -output=pylib github.com/tomoris/PYHSMM/bayselm
 Training language model.  
 `./main lm --model hpylm --maxNgram 2 --trainFile data/alice.train.txt --testFile alice.test.txt`  
 Training word segmentation model without labeled data.  
-`./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw --threads 8 -- saveFile alice_npylm.model.json`  
+`./main ws --model npylm --maxNgram 2 --trainFile data/alice.raw --threads 8 --saveFile alice_npylm.model.json`  
 
 ### for Python Extention (if you want)
 ```

@@ -18,6 +18,7 @@ type UnsupervisedWSM interface {
 	TrainWordSegmentation(*DataContainer, int, int)
 	TestWordSegmentation([][]rune, int) [][]string
 	Initialize(*DataContainer)
+	InitializeFromAnnotatedData(*DataContainer)
 	save() ([]byte, interface{})
 	load([]byte)
 }

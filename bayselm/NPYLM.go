@@ -192,7 +192,7 @@ func (npylm *NPYLM) TrainWordSegmentation(dataContainer *DataContainer, threadsN
 		}
 	}
 	bar.Finish()
-	npylm.poissonCorrection()
+	// npylm.poissonCorrection()
 	npylm.estimateHyperPrameters()
 	npylm.vpylm.hpylm.estimateHyperPrameters()
 	return
@@ -405,7 +405,9 @@ func (npylm *NPYLM) Initialize(dataContainer *DataContainer) {
 }
 
 // InitializeFromAnnotatedData initializes parameters from annotated texts.
-func (npylm *NPYLM) InitializeFromAnnotatedData(sents [][]rune, samplingWordSeqs []context) {
+func (npylm *NPYLM) InitializeFromAnnotatedData(dataContainer *DataContainer) {
+	sents := dataContainer.Sents
+	samplingWordSeqs := dataContainer.SamplingWordSeqs
 	for i := 0; i < len(samplingWordSeqs); i++ {
 		adjustedSamplingWordSeq := make(context, 0, len(sents[i]))
 		for j := 0; j < len(samplingWordSeqs[i]); j++ {
