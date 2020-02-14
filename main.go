@@ -51,11 +51,12 @@ func trainLanguageModel() {
 	}
 	dataContainerForTrain := bayselm.NewDataContainerFromAnnotatedData(*trainFilePathForLM)
 	dataContainerForTest := bayselm.NewDataContainerFromAnnotatedData(*testFilePathForLM)
+	time.Sleep(3)
 	for e := 0; e < *epoch; e++ {
 		model.Train(dataContainerForTrain)
+		perplexity := bayselm.CalcPerplexity(model, dataContainerForTest)
+		fmt.Println("Perplexity = ", perplexity)
 	}
-	perplexity := bayselm.CalcPerplexity(model, dataContainerForTest)
-	fmt.Println("Perplexity = ", perplexity)
 	if *saveFile != "" {
 		bayselm.Save(model.(bayselm.NgramLM), *saveFile, *saveFormat)
 		// セーブしたものと同じモデルをロードできるかの確認

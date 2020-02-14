@@ -936,3 +936,26 @@ func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreFor
 
 	return eachScore
 }
+
+// TrainWithDiscScore trains parameter with forward score, which includes discriminator score, for python bindings.
+func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []rune, logForwardScoreList []float64, dataContainer *DataContainer, index int, samping bool) {
+	// load forwardScore
+	i := 0
+	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
+	for t := 0; t < len(sent); t++ {
+		forwardScore[t] = make([][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
+		for k := 0; k < pyhsmm.maxWordLength; k++ {
+			forwardScore[t][k] = make([]float64, pyhsmm.PosSize, pyhsmm.PosSize)
+			for z := 0; z < pyhsmm.PosSize; z++ {
+				forwardScore[t][k][z] = logForwardScoreList[i]
+				i++
+			}
+		}
+	}
+
+	sampledWordSeqs, sampledPosSeqs := pyhsmm.backward(sent, forwardScore, true)
+	dataContainer.SamplingWordSeqs[index] = sampledWordSeqs
+	dataContainer.SamplingPosSeqs[index] = sampledPosSeqs
+	pyhsmm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[index], dataContainer.SamplingPosSeqs[index])
+	return
+}

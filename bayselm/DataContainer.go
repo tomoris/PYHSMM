@@ -114,3 +114,13 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 func (dataContainer *DataContainer) GetWordSeq(i int) []string {
 	return dataContainer.SamplingWordSeqs[i]
 }
+
+// GetSentString returns i-th sent (string) for python binding.
+// e.g., sent = "this is an example of sent"
+func (dataContainer *DataContainer) GetSentString(i int) string {
+	if i > dataContainer.Size {
+		errMsg := fmt.Sprintf("GetSentString error. index i (%v) is bigger than size (%v)", i, dataContainer.Size)
+		panic(errMsg)
+	}
+	return string(dataContainer.Sents[i])
+}
