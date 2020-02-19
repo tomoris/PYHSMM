@@ -169,7 +169,7 @@ func (hpylm *HPYLM) AddCustomer(word string, u context, base float64, addBaseFun
 	return
 }
 
-func (hpylm *HPYLM) addStopAndPassCount(word string, u context) {
+func (hpylm *HPYLM) addStopAndPassCount(u context) {
 	rst, ok := hpylm.restaurants[strings.Join(u, concat)]
 	if !ok {
 		errMsg := fmt.Sprintf("addStopAndPassCount error. context u (%v) does not exist", u)

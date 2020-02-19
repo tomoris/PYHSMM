@@ -2,6 +2,7 @@ package bayselm
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -50,9 +51,12 @@ func (vpylm *VPYLM) AddCustomer(word string, u context) int {
 		if depth >= vpylm.hpylm.maxDepth+1 {
 			panic("sampling error in VPYLM")
 		}
+		if depth > len(u) {
+			panic("sampling error in VPYLM")
+		}
 	}
 	vpylm.hpylm.AddCustomer(word, u[len(u)-depth:], vpylm.hpylm.Base, vpylm.hpylm.addCustomerBaseNull)
-	vpylm.hpylm.addStopAndPassCount(word, u[len(u)-depth:])
+	vpylm.hpylm.addStopAndPassCount(u[len(u)-depth:])
 	return depth
 }
 
@@ -76,14 +80,21 @@ func (vpylm *VPYLM) CalcProb(word string, u context) (float64, []float64, []floa
 	pPass := float64(1.0)
 	pStop := float64(1.0)
 	p := float64(0.0)
+	pStopSum := float64(0.0)
 	for i, pNgram := range pNgrams {
 		pStop = stopProbs[i] * pPass
 		p += pStop * pNgram
 		probs[i] = pStop * pNgram
 
 		pPass *= (1.0 - stopProbs[i])
+		pStopSum += pStop
 	}
 
+	if !(0.0 < pStopSum && pStopSum < 1.0+0.00001) { // 浮動小数点の計算誤差の分ほんの少しだけ多めに
+		errMsg := fmt.Sprintf("CalcProb error. pStopSum = %g", pStopSum)
+		panic(errMsg)
+	}
+	p /= pStopSum
 	return p + math.SmallestNonzeroFloat64, pNgrams, probs
 }
 

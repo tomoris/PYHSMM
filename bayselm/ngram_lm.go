@@ -17,8 +17,10 @@ type context []string
 type UnsupervisedWSM interface {
 	TrainWordSegmentation(*DataContainer, int, int)
 	TestWordSegmentation([][]rune, int) [][]string
+	CalcTestScore([][]string, int) (float64, float64)
 	Initialize(*DataContainer)
 	InitializeFromAnnotatedData(*DataContainer)
+	ShowParameters()
 	save() ([]byte, interface{})
 	load([]byte)
 }

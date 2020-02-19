@@ -58,14 +58,15 @@ func (npylm *NPYLM) addCustomerBase(word string) {
 		runeWord := []rune(word)
 		sampledDepthMemory := make([]int, len(runeWord)+1, len(runeWord)+1)
 		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-		for i := 0; i < npylm.maxWordLength; i++ {
-			uChar = append(uChar, npylm.bow)
-		}
 		for i := 0; i < len(runeWord); i++ {
 			lastChar := string(runeWord[i])
 			sampledDepth := npylm.vpylm.AddCustomer(lastChar, uChar)
 			sampledDepthMemory[i] = sampledDepth
-			uChar = append(uChar[1:], string(runeWord[i]))
+			start := 0
+			if len(uChar) == npylm.maxWordLength {
+				start = 1
+			}
+			uChar = append(uChar[start:], string(runeWord[i]))
 		}
 		sampledDepth := npylm.vpylm.AddCustomer(npylm.eow, uChar)
 		sampledDepthMemory[len(runeWord)] = sampledDepth
@@ -95,13 +96,14 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 		}
 		sampledDepthMemory := sampledDepthMemories[0]
 		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-		for i := 0; i < npylm.maxWordLength; i++ {
-			uChar = append(uChar, npylm.bow)
-		}
 		for i := 0; i < len(runeWord); i++ {
 			lastChar := string(runeWord[i])
 			npylm.vpylm.RemoveCustomer(lastChar, uChar, sampledDepthMemory[i])
-			uChar = append(uChar[1:], string(runeWord[i]))
+			start := 0
+			if len(uChar) == npylm.maxWordLength {
+				start = 1
+			}
+			uChar = append(uChar[start:], string(runeWord[i]))
 		}
 		npylm.vpylm.RemoveCustomer(npylm.eow, uChar, sampledDepthMemory[len(runeWord)])
 
@@ -121,14 +123,15 @@ func (npylm *NPYLM) calcBase(word string) float64 {
 	// 	panic(errMsg)
 	// }
 	uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-	for i := 0; i < npylm.maxWordLength; i++ {
-		uChar = append(uChar, npylm.bow)
-	}
 	for i := 0; i < len(runeWord); i++ {
 		lastChar := string(runeWord[i])
 		pTmpMixed, _, _ := npylm.vpylm.CalcProb(lastChar, uChar)
 		p *= pTmpMixed
-		uChar = append(uChar[1:], string(runeWord[i]))
+		start := 0
+		if len(uChar) == npylm.maxWordLength {
+			start = 1
+		}
+		uChar = append(uChar[start:], string(runeWord[i]))
 	}
 	pTmpMixed, _, _ := npylm.vpylm.CalcProb(npylm.eow, uChar)
 	p *= pTmpMixed
@@ -219,6 +222,60 @@ func (npylm *NPYLM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]str
 	}
 	wg.Wait()
 	return wordSeqs
+}
+
+// CalcTestScore calculates score of word sequences score like perplixity.
+func (npylm *NPYLM) CalcTestScore(wordSeqs [][]string, threadsNum int) (float64, float64) {
+	ch := make(chan int, threadsNum)
+	if threadsNum <= 0 {
+		panic("threadsNum should be bigger than 0")
+	}
+	wg := sync.WaitGroup{}
+
+	scores := make([]float64, len(wordSeqs), len(wordSeqs))
+	wordSizes := make([]int, len(wordSeqs), len(wordSeqs))
+	for i := 0; i < len(wordSeqs); i++ {
+		ch <- 1
+		wg.Add(1)
+		go func(i int) {
+			seqScore := npylm.CalcWordSeqScore(wordSeqs[i])
+			scores[i] += seqScore
+			wordSizes[i] += len(wordSeqs[i])
+			<-ch
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	corpusScore := float64(0.0)
+	wordSize := int(0)
+	for i, seqScore := range scores {
+		corpusScore += seqScore
+		wordSize += wordSizes[i]
+	}
+	corpusScore *= -1.0
+	corpusScoreDivWordSize := corpusScore / float64(wordSize)
+	corpusScoreDivSentSize := corpusScore / float64(len(wordSeqs))
+	return corpusScoreDivWordSize, corpusScoreDivSentSize
+}
+
+// CalcWordSeqScore calculates score of given word sequence.
+func (npylm *NPYLM) CalcWordSeqScore(wordSeq context) float64 {
+	word := string("")
+	u := make(context, npylm.maxNgram-1, npylm.maxNgram-1) // now bi-gram only
+	base := float64(0.0)
+	seqScore := float64(0.0)
+	for i := 0; i < len(wordSeq); i++ {
+		if i == 0 {
+			u[0] = npylm.bos
+		} else {
+			u[0] = wordSeq[i-1]
+		}
+		word = wordSeq[i]
+		base = npylm.calcBase(word)
+		score, _ := npylm.CalcProb(word, u, base)
+		seqScore += math.Log(score)
+	}
+	return seqScore
 }
 
 // TestWordSegmentationForPython inferences word segmentation, and returns data_container which contain segmented texts.
@@ -386,19 +443,21 @@ func (npylm *NPYLM) Initialize(dataContainer *DataContainer) {
 	samplingWordSeqs := dataContainer.SamplingWordSeqs
 	for i := 0; i < len(sents); i++ {
 		sent := sents[i]
-		start := 0
-		for {
-			r := rand.Intn(npylm.maxWordLength) + 1
-			end := start + r
-			if end > len(sent) {
-				end = len(sent)
-			}
-			samplingWordSeqs[i] = append(samplingWordSeqs[i], string(sent[start:end]))
-			start = end
-			if start == len(sent) {
-				break
-			}
-		}
+		// start := 0
+		// for {
+		// 	r := rand.Intn(npylm.maxWordLength) + 1
+		// 	end := start + r
+		// 	if end > len(sent) {
+		// 		end = len(sent)
+		// 	}
+		// 	samplingWordSeqs[i] = append(samplingWordSeqs[i], string(sent[start:end]))
+		// 	start = end
+		// 	if start == len(sent) {
+		// 		break
+		// 	}
+		// }
+		// あとで直す
+		samplingWordSeqs[i] = append(samplingWordSeqs[i], string(sent))
 		npylm.addWordSeqAsCustomer(samplingWordSeqs[i])
 	}
 	return
@@ -662,4 +721,15 @@ func (npylm *NPYLM) load(v []byte) {
 		return word2sampledDepthMemory
 	}(npylmJSON)
 	return
+}
+
+// ShowParameters shows hyperparameters of this model.
+func (npylm *NPYLM) ShowParameters() {
+	fmt.Println("estimated hyperparameters of NPYLM")
+	fmt.Println("HPYLM theta", npylm.theta)
+	fmt.Println("HPYLM d", npylm.d)
+	fmt.Println("VPYLM theta", npylm.vpylm.hpylm.theta)
+	fmt.Println("VPYLM d", npylm.vpylm.hpylm.d)
+	fmt.Println("VPYLM alpha", npylm.vpylm.alpha)
+	fmt.Println("VPYLM beta", npylm.vpylm.beta)
 }

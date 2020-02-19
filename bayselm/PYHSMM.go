@@ -959,3 +959,24 @@ func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []rune, logForwardScoreList []floa
 	pyhsmm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[index], dataContainer.SamplingPosSeqs[index])
 	return
 }
+
+// CalcTestScore calculates score of word sequences score like perplixity.
+func (pyhsmm *PYHSMM) CalcTestScore(wordSeqs [][]string, threadsNum int) (float64, float64) {
+	// TODO
+	return 0.0, 0.0
+}
+
+// ShowParameters shows hyperparameters of this model.
+func (pyhsmm *PYHSMM) ShowParameters() {
+	fmt.Println("estimated hyperparameters of PYHSMM")
+	for pos := 0; pos < pyhsmm.PosSize+1; pos++ {
+		fmt.Println("HPYLM", pos, "theta", pyhsmm.npylms[pos].theta)
+		fmt.Println("HPYLM d", pos, pyhsmm.npylms[pos].d)
+	}
+	fmt.Println("VPYLM theta", pyhsmm.npylms[0].vpylm.hpylm.theta)
+	fmt.Println("VPYLM d", pyhsmm.npylms[0].vpylm.hpylm.d)
+	fmt.Println("VPYLM alpha", pyhsmm.npylms[0].vpylm.alpha)
+	fmt.Println("VPYLM beta", pyhsmm.npylms[0].vpylm.beta)
+	fmt.Println("posHpylm theta", pyhsmm.posHpylm.theta)
+	fmt.Println("posHpylm d", pyhsmm.posHpylm.d)
+}
