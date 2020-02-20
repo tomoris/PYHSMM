@@ -33,7 +33,7 @@ var (
 	betaA         = args.Flag("betaA", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	betaB         = args.Flag("betaB", "hyper-parameter in HPYLM - PYHSMM").Default("1.0").Float64()
 	vocabSize     = args.Flag("vocabSize", "hyper-parameter in HPYLM - VPYLM (default parameter is size of character vocab. (utf-8))").Default("2097152.0").Float64()
-	alpha         = args.Flag("alpha", "hyper-parameter in VPYLM - PYHSMM (used sampling depth in VPYLM)").Default("4.0").Float64()
+	alpha         = args.Flag("alpha", "hyper-parameter in VPYLM - PYHSMM (used sampling depth in VPYLM)").Default("1.0").Float64()
 	beta          = args.Flag("beta", "hyper-parameter in VPYLM - PYHSMM (used sampling depth in VPYLM)").Default("1.0").Float64()
 	maxWordLength = args.Flag("maxWordLength", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
 	posSize       = args.Flag("posSize", "hyper-parameter in NPYLM - PYHSMM").Default("10").Int()
