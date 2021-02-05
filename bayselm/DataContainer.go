@@ -9,37 +9,37 @@ import (
 
 // DataContainer contains information of sentences, word sequences and their part-of-speech sequence.
 type DataContainer struct {
-	Sents                 [][]rune
+	Sents                 [][]string
 	SamplingWordSeqs      []context
 	SamplingPosSeqs       [][]int // for PYHSMM
 	SamplingDepthMemories [][]int // for VPYLM
 	Size                  int
 }
 
-// NewDataContainerFromSents returns DataContainer instance.
-// input file is required unsegmented texts (not split space)
-func NewDataContainerFromSents(sents []string) *DataContainer {
-	dataContainer := new(DataContainer)
+// // NewDataContainerFromSents returns DataContainer instance.
+// // input file is required unsegmented texts (not split space)
+// func NewDataContainerFromSents(sents []string) *DataContainer {
+// 	dataContainer := new(DataContainer)
 
-	count := 0
-	for _, sentStr := range sents {
-		loweredStringSent := strings.ToLower(sentStr)
-		sent := []rune(loweredStringSent)
-		if len(sent) > 0 {
-			dataContainer.Sents = append(dataContainer.Sents, sent)
-			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
-			dataContainer.SamplingPosSeqs = append(dataContainer.SamplingPosSeqs, make([]int, 0, len(sent)))
-			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(sent)))
-			count++
-		}
-	}
-	dataContainer.Size = count
-	return dataContainer
-}
+// 	count := 0
+// 	for _, sentStr := range sents {
+// 		loweredStringSent := strings.ToLower(sentStr)
+// 		sent := []rune(loweredStringSent)
+// 		if len(sent) > 0 {
+// 			dataContainer.Sents = append(dataContainer.Sents, sent)
+// 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
+// 			dataContainer.SamplingPosSeqs = append(dataContainer.SamplingPosSeqs, make([]int, 0, len(sent)))
+// 			dataContainer.SamplingDepthMemories = append(dataContainer.SamplingDepthMemories, make([]int, 0, len(sent)))
+// 			count++
+// 		}
+// 	}
+// 	dataContainer.Size = count
+// 	return dataContainer
+// }
 
 // NewDataContainer returns DataContainer instance.
 // input file is required unsegmented texts (not split space)
-func NewDataContainer(filePath string) *DataContainer {
+func NewDataContainer(filePath string, splitter string) *DataContainer {
 	dataContainer := new(DataContainer)
 
 	f, ok := os.Open(filePath)
@@ -58,7 +58,7 @@ func NewDataContainer(filePath string) *DataContainer {
 		}
 
 		loweredStringSent := strings.ToLower(sc.Text())
-		sent := []rune(loweredStringSent)
+		sent := strings.Split(loweredStringSent, splitter)
 		if len(sent) > 0 {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
@@ -92,11 +92,11 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 		}
 
 		sentStr := sc.Text()
-		sent := []rune(strings.Replace(sentStr, " ", "", -1))
+		sent := strings.Split(sentStr, "")
 		if len(sent) > 0 {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			wordSeq := make(context, 0, len(sent))
-			wordSeq = context(strings.Fields(sentStr))
+			wordSeq = context(strings.Split(sentStr, " "))
 			if len(wordSeq) == 0 {
 				continue
 			}
@@ -122,5 +122,5 @@ func (dataContainer *DataContainer) GetSentString(i int) string {
 		errMsg := fmt.Sprintf("GetSentString error. index i (%v) is bigger than size (%v)", i, dataContainer.Size)
 		panic(errMsg)
 	}
-	return string(dataContainer.Sents[i])
+	return strings.Join((dataContainer.Sents[i]), "")
 }

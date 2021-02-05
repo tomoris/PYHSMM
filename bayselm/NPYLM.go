@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"strings"
 
 	"github.com/cheggaaa/pb/v3"
 
@@ -31,16 +32,18 @@ type NPYLM struct {
 	length2prob []float64
 
 	word2sampledDepthMemory map[string][][]int
+
+	splitter string
 }
 
 // NewNPYLM returns NPYLM instance.
-func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int) *NPYLM {
+func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, splitter string) *NPYLM {
 
 	charBase := float64(1.0 / 2097152.0) // 1 / 2^21 , size of character vocabulary in utf-8 encodeing
 	dummyBase := charBase
 	hpylm := NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, dummyBase)
 	vpylm := NewVPYLM(maxWordLength+2, initialTheta, initialD, gammaA, gammaB, betaA, betaB, charBase, alpha, beta)
-	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, bos, "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]float64, maxWordLength, maxWordLength), make(map[string][][]int)}
+	npylm := &NPYLM{hpylm, vpylm, maxNgram, maxWordLength, bos, "<EOS>", "<BOW>", "<EOW>", distuv.Poisson{}, make([]float64, maxWordLength, maxWordLength), make(map[string][][]int), splitter}
 
 	npylm.poisson.Lambda = float64(maxWordLength) / 2.0
 	for k := 0; k < maxWordLength; k++ {
@@ -55,21 +58,22 @@ func NewNPYLM(initialTheta float64, initialD float64, gammaA float64, gammaB flo
 
 func (npylm *NPYLM) addCustomerBase(word string) {
 	if word != npylm.bos && word != npylm.eos {
-		runeWord := []rune(word)
-		sampledDepthMemory := make([]int, len(runeWord)+1, len(runeWord)+1)
+		sliceWord := strings.Split(word, npylm.splitter)
+
+		sampledDepthMemory := make([]int, len(sliceWord)+1, len(sliceWord)+1)
 		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-		for i := 0; i < len(runeWord); i++ {
-			lastChar := string(runeWord[i])
+		for i := 0; i < len(sliceWord); i++ {
+			lastChar := sliceWord[i]
 			sampledDepth := npylm.vpylm.AddCustomer(lastChar, uChar)
 			sampledDepthMemory[i] = sampledDepth
 			start := 0
 			if len(uChar) == npylm.maxWordLength {
 				start = 1
 			}
-			uChar = append(uChar[start:], string(runeWord[i]))
+			uChar = append(uChar[start:], sliceWord[i])
 		}
 		sampledDepth := npylm.vpylm.AddCustomer(npylm.eow, uChar)
-		sampledDepthMemory[len(runeWord)] = sampledDepth
+		sampledDepthMemory[len(sliceWord)] = sampledDepth
 
 		_, ok := npylm.word2sampledDepthMemory[word]
 		if !ok {
@@ -84,7 +88,8 @@ func (npylm *NPYLM) addCustomerBase(word string) {
 
 func (npylm *NPYLM) removeCustomerBase(word string) {
 	if word != npylm.bos && word != npylm.eos {
-		runeWord := []rune(word)
+		sliceWord := strings.Split(word, npylm.splitter)
+
 		sampledDepthMemories, ok := npylm.word2sampledDepthMemory[word]
 		if !ok {
 			errMsg := fmt.Sprintf("removeCustomerBase error. sampledDepthMemories of word (%v) does not exist", word)
@@ -96,16 +101,16 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 		}
 		sampledDepthMemory := sampledDepthMemories[0]
 		uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-		for i := 0; i < len(runeWord); i++ {
-			lastChar := string(runeWord[i])
+		for i := 0; i < len(sliceWord); i++ {
+			lastChar := sliceWord[i]
 			npylm.vpylm.RemoveCustomer(lastChar, uChar, sampledDepthMemory[i])
 			start := 0
 			if len(uChar) == npylm.maxWordLength {
 				start = 1
 			}
-			uChar = append(uChar[start:], string(runeWord[i]))
+			uChar = append(uChar[start:], sliceWord[i])
 		}
-		npylm.vpylm.RemoveCustomer(npylm.eow, uChar, sampledDepthMemory[len(runeWord)])
+		npylm.vpylm.RemoveCustomer(npylm.eow, uChar, sampledDepthMemory[len(sliceWord)])
 
 		npylm.word2sampledDepthMemory[word] = sampledDepthMemories[1:]
 		if len(npylm.word2sampledDepthMemory[word]) == 0 {
@@ -117,21 +122,22 @@ func (npylm *NPYLM) removeCustomerBase(word string) {
 
 func (npylm *NPYLM) calcBase(word string) float64 {
 	p := float64(1.0)
-	runeWord := []rune(word)
+	sliceWord := strings.Split(word, npylm.splitter)
+
 	// if len(runeWord) > npylm.maxWordLength {
 	// 	errMsg := fmt.Sprintf("calcBase error. length of word (%v) is longer than npylm.maxWordLength (%v)", word, npylm.maxWordLength)
 	// 	panic(errMsg)
 	// }
 	uChar := make(context, 0, npylm.maxWordLength) // +1 is for bos
-	for i := 0; i < len(runeWord); i++ {
-		lastChar := string(runeWord[i])
+	for i := 0; i < len(sliceWord); i++ {
+		lastChar := sliceWord[i]
 		pTmpMixed, _, _ := npylm.vpylm.CalcProb(lastChar, uChar)
 		p *= pTmpMixed
 		start := 0
 		if len(uChar) == npylm.maxWordLength {
 			start = 1
 		}
-		uChar = append(uChar[start:], string(runeWord[i]))
+		uChar = append(uChar[start:], sliceWord[i])
 	}
 	pTmpMixed, _, _ := npylm.vpylm.CalcProb(npylm.eow, uChar)
 	p *= pTmpMixed
@@ -202,7 +208,7 @@ func (npylm *NPYLM) TrainWordSegmentation(dataContainer *DataContainer, threadsN
 }
 
 // TestWordSegmentation inferences word segmentation from input unsegmented texts.
-func (npylm *NPYLM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]string {
+func (npylm *NPYLM) TestWordSegmentation(sents [][]string, threadsNum int) [][]string {
 	wordSeqs := make([][]string, len(sents), len(sents))
 	ch := make(chan int, threadsNum)
 	if threadsNum <= 0 {
@@ -279,7 +285,7 @@ func (npylm *NPYLM) CalcWordSeqScore(wordSeq context) float64 {
 }
 
 // TestWordSegmentationForPython inferences word segmentation, and returns data_container which contain segmented texts.
-func (npylm *NPYLM) TestWordSegmentationForPython(sents [][]rune, threadsNum int) *DataContainer {
+func (npylm *NPYLM) TestWordSegmentationForPython(sents [][]string, threadsNum int) *DataContainer {
 	wordSeqs := npylm.TestWordSegmentation(sents, threadsNum)
 	dataContainer := new(DataContainer)
 	for _, wordSeq := range wordSeqs {
@@ -289,7 +295,7 @@ func (npylm *NPYLM) TestWordSegmentationForPython(sents [][]rune, threadsNum int
 	return dataContainer
 }
 
-func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
+func (npylm *NPYLM) forward(sent []string) forwardScoreType {
 	// initialize forwardScore
 	forwardScore := make(forwardScoreType, len(sent), len(sent))
 	for t := 0; t < len(sent); t++ {
@@ -302,7 +308,7 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < npylm.maxWordLength; k++ {
 			if t-k >= 0 {
-				word = string(sent[(t - k) : t+1])
+				word = strings.Join((sent[(t - k) : t+1]), npylm.splitter)
 				base = npylm.calcBase(word)
 				if t-k == 0 {
 					u[0] = npylm.bos
@@ -317,7 +323,7 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 			forwardScoreTmp := make([]float64, 0, npylm.maxWordLength)
 			for j := 0; j < npylm.maxWordLength; j++ {
 				if t-k-(j+1) >= 0 {
-					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+					u[0] = strings.Join(sent[(t-k-(j+1)):(t-k)], npylm.splitter)
 					score, _ := npylm.CalcProb(word, u, base)
 					score = math.Log(score) + forwardScore[t-(k+1)][j]
 					forwardScoreTmp = append(forwardScoreTmp, score)
@@ -333,7 +339,7 @@ func (npylm *NPYLM) forward(sent []rune) forwardScoreType {
 	return forwardScore
 }
 
-func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, sampling bool) context {
+func (npylm *NPYLM) backward(sent []string, forwardScore forwardScoreType, sampling bool) context {
 	t := len(sent)
 	k := 0
 	prevWord := npylm.eos
@@ -356,7 +362,7 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 		maxJ := -1
 		for j := 0; j < npylm.maxWordLength; j++ {
 			if t-k-(j+1) >= 0 {
-				u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+				u[0] = strings.Join(sent[(t-k-(j+1)):(t-k)], npylm.splitter)
 				score, _ := npylm.CalcProb(prevWord, u, base)
 				score = math.Log(score) + forwardScore[t-(k+1)][j]
 				if score > maxScore {
@@ -390,7 +396,7 @@ func (npylm *NPYLM) backward(sent []rune, forwardScore forwardScoreType, samplin
 		if t-k-(j+1) < 0 {
 			panic("sampling error in NPYLM")
 		}
-		samplingWord = string(sent[(t - k - (j + 1)):(t - k)])
+		samplingWord = strings.Join(sent[(t-k-(j+1)):(t-k)], npylm.splitter)
 		samplingWordSeq = append(samplingWordSeq, samplingWord)
 		prevWord = samplingWord
 		t = t - (k + 1)
@@ -457,7 +463,7 @@ func (npylm *NPYLM) Initialize(dataContainer *DataContainer) {
 		// 	}
 		// }
 		// あとで直す
-		samplingWordSeqs[i] = append(samplingWordSeqs[i], string(sent))
+		samplingWordSeqs[i] = append(samplingWordSeqs[i], strings.Join(sent, npylm.splitter))
 		npylm.addWordSeqAsCustomer(samplingWordSeqs[i])
 	}
 	return
@@ -471,7 +477,8 @@ func (npylm *NPYLM) InitializeFromAnnotatedData(dataContainer *DataContainer) {
 		adjustedSamplingWordSeq := make(context, 0, len(sents[i]))
 		for j := 0; j < len(samplingWordSeqs[i]); j++ {
 			word := samplingWordSeqs[i][j]
-			wordLen := len([]rune(word))
+			sliceWord := strings.Split(word, npylm.splitter)
+			wordLen := len(sliceWord)
 			if wordLen < npylm.maxWordLength {
 				adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, word)
 			} else {
@@ -481,7 +488,7 @@ func (npylm *NPYLM) InitializeFromAnnotatedData(dataContainer *DataContainer) {
 					if end > wordLen {
 						end = wordLen
 					}
-					adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, string([]rune(word)[start:end]))
+					adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, strings.Join(sliceWord[start:end], npylm.splitter))
 					start = end
 					if start == wordLen {
 						break
@@ -503,8 +510,8 @@ func (npylm *NPYLM) poissonCorrection() {
 	a := float64(1.0)
 	b := float64(1.0)
 	for word, totalTableCount := range npylm.restaurants[""].totalTableCountForCustomer {
-		runeWord := []rune(word)
-		a += (float64(totalTableCount) * float64(len(runeWord)))
+		sliceWord := strings.Split(word, npylm.splitter)
+		a += (float64(totalTableCount) * float64(len(sliceWord)))
 		b += float64(totalTableCount)
 	}
 	g := distuv.Gamma{}
@@ -652,6 +659,7 @@ func (npylm *NPYLM) save() ([]byte, interface{}) {
 		Eos:           npylm.eos,
 		Bow:           npylm.bow,
 		Eow:           npylm.eow,
+		Splitter:      npylm.splitter,
 
 		Poisson:     npylm.poisson,
 		Length2prob: npylm.length2prob,
@@ -710,6 +718,7 @@ func (npylm *NPYLM) load(v []byte) {
 	npylm.eos = npylmJSON.Eos
 	npylm.bow = npylmJSON.Bow
 	npylm.eow = npylmJSON.Eow
+	npylm.splitter = npylmJSON.Splitter
 
 	npylm.poisson = npylmJSON.Poisson
 	npylm.length2prob = npylmJSON.Length2prob

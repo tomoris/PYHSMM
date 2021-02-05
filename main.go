@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"time"
+	"strings"
 
 	"github.com/tomoris/PYHSMM/bayselm"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -25,6 +26,11 @@ var (
 	trainFilePathForWS = ws.Flag("trainFile", "training file path. the texts are unsegmented.").Required().String()
 	testFilePathForWS  = ws.Flag("testFile", "test file path. the texts are unsegmented.").Default("").String()
 
+	wsTest                = args.Command("wsTest", "training word segmentation from unsegmented texts")
+	modelForWSTest        = wsTest.Flag("model", "unsupervised word segmentation model").Required().Enum("npylm", "pyhsmm")
+	testFilePathForWSTest = wsTest.Flag("testFile", "test file path. the texts are unsegmented.").Default("").String()
+	loadFile              = wsTest.Flag("loadFile", "file path to load model").String()
+
 	maxNgram      = args.Flag("maxNgram", "hyper-parameter in HPYLM - PYHSMM").Default("2").Int()
 	initialTheta  = args.Flag("theta", "initial hyper-parameter in HPYLM - PYHSMM").Default("2.0").Float64()
 	initialD      = args.Flag("d", "initial hyper-parameter in HPYLM - PYHSMM").Default("0.9").Float64()
@@ -40,6 +46,7 @@ var (
 	epoch         = args.Flag("epoch", "hyper-parameter in HPYLM - PYHSMM").Default("100").Int()
 	batch         = args.Flag("batch", "hyper-parameter in NPYLM - PYHSMM").Default("16").Int()
 	threads       = args.Flag("threads", "hyper-parameter in NPYLM - PYHSMM").Default("8").Int()
+	splitter       = args.Flag("splitter", "hyper-parameter in NPYLM - PYHSMM").Default("").String()
 
 	saveFile   = args.Flag("saveFile", "file path to save model").String()
 	saveFormat = args.Flag("saveFormat", "model save format").Default("notindent").Enum("notindent", "indent")
@@ -68,26 +75,26 @@ func trainLanguageModel() {
 	return
 }
 
-func trainWordSegmentation(modelForWS string, trainFilePathForWS string, testFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int, saveFile string, saveFormat string) {
+func trainWordSegmentation(modelForWS string, trainFilePathForWS string, testFilePathForWS string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, posSize int, base float64, epoch int, threads int, batch int, saveFile string, saveFormat string, splitter string) {
 	runtime.GOMAXPROCS(threads)
-	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base)
+	model, ok := bayselm.GenerateUnsupervisedWSM(modelForWS, initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, posSize, base, splitter)
 	if !ok {
 		panic("Building model error")
 	}
-	dataContainer := bayselm.NewDataContainer(trainFilePathForWS)
+	dataContainer := bayselm.NewDataContainer(trainFilePathForWS, splitter)
 	// dataContainer := bayselm.NewDataContainerFromAnnotatedData(trainFilePathForWS)
 	if testFilePathForWS == "" {
 		testFilePathForWS = trainFilePathForWS
 	}
 	model.Initialize(dataContainer)
 	// model.InitializeFromAnnotatedData(dataContainer)
-	dataContainerForTest := bayselm.NewDataContainer(testFilePathForWS)
+	dataContainerForTest := bayselm.NewDataContainer(testFilePathForWS, splitter)
 	for e := 0; e < epoch; e++ {
 		model.TrainWordSegmentation(dataContainer, threads, batch)
 		testSize := dataContainerForTest.Size
 		wordSeqs := model.TestWordSegmentation(dataContainerForTest.Sents[:testSize], threads)
 		for i := 0; i < testSize; i++ {
-			fmt.Println(e, "test", wordSeqs[i])
+			fmt.Println(e, "test", strings.Join(wordSeqs[i], "_"))
 		}
 		scoreDivWordSize, scoreDivSentSize := model.CalcTestScore(wordSeqs, threads)
 		fmt.Println("scoreDivWordSize = ", scoreDivWordSize, "\t", "scoreDivSentSize = ", scoreDivSentSize)
@@ -114,13 +121,30 @@ func trainWordSegmentation(modelForWS string, trainFilePathForWS string, testFil
 	return
 }
 
+func testWordSegmentation(modelForWS string, testFilePathForWS string, loadFile string, threads int, splitter string) {
+	var model bayselm.UnsupervisedWSM = bayselm.Load(modelForWS, loadFile).(bayselm.UnsupervisedWSM)
+	dataContainerForTest := bayselm.NewDataContainer(testFilePathForWS, splitter)
+	testSize := dataContainerForTest.Size
+	wordSeqs := model.TestWordSegmentation(dataContainerForTest.Sents[:testSize], threads)
+	for i := 0; i < testSize; i++ {
+		var newline string
+		for _, token := range wordSeqs[i] {
+			newline += token + " "
+		}
+		fmt.Println(newline[:len(newline)-1])
+	}
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	switch kingpin.MustParse(args.Parse(os.Args[1:])) {
 	case lm.FullCommand():
 		trainLanguageModel()
 	case ws.FullCommand():
-		trainWordSegmentation(*modelForWS, *trainFilePathForWS, *testFilePathForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize, *epoch, *threads, *batch, *saveFile, *saveFormat)
+		trainWordSegmentation(*modelForWS, *trainFilePathForWS, *testFilePathForWS, *initialTheta, *initialD, *gammaA, *gammaB, *betaA, *betaB, *alpha, *beta, *maxNgram, *maxWordLength, *posSize, 1.0 / *vocabSize, *epoch, *threads, *batch, *saveFile, *saveFormat, *splitter)
+	case wsTest.FullCommand():
+		testWordSegmentation(*modelForWSTest, *testFilePathForWSTest, *loadFile, *threads, *splitter)
 	}
+	fmt.Println([]byte(*splitter))
 	return
 }

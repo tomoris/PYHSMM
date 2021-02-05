@@ -16,7 +16,7 @@ type context []string
 // UnsupervisedWSM is unsupervised word segmentation model.
 type UnsupervisedWSM interface {
 	TrainWordSegmentation(*DataContainer, int, int)
-	TestWordSegmentation([][]rune, int) [][]string
+	TestWordSegmentation([][]string, int) [][]string
 	CalcTestScore([][]string, int) (float64, float64)
 	Initialize(*DataContainer)
 	InitializeFromAnnotatedData(*DataContainer)
@@ -26,15 +26,15 @@ type UnsupervisedWSM interface {
 }
 
 // GenerateUnsupervisedWSM returns UnsupervisedWSM instance.
-func GenerateUnsupervisedWSM(modelName string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int, base float64) (UnsupervisedWSM, bool) {
+func GenerateUnsupervisedWSM(modelName string, initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int, base float64, splitter string) (UnsupervisedWSM, bool) {
 	var model UnsupervisedWSM
 	ok := false
 	switch modelName {
 	case "npylm":
-		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, splitter)
 		ok = true
 	case "pyhsmm":
-		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize, splitter)
 		ok = true
 	}
 	return model, ok
@@ -68,10 +68,10 @@ func GenerateNgramLM(modelName string, initialTheta float64, initialD float64, g
 		model = NewVPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base, alpha, beta)
 		ok = true
 	case "npylm":
-		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, "")
 		ok = true
 	case "pyhsmm":
-		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize, "")
 		ok = true
 	}
 	return model, ok
@@ -142,6 +142,7 @@ func Load(modelName string, loadFile string) NgramLM {
 	maxWordLength := 10
 	PosSize := 10
 	base := 0.1
+	splitter := ""
 	switch modelName {
 	case "ngram":
 		model = &Ngram{}
@@ -153,10 +154,10 @@ func Load(modelName string, loadFile string) NgramLM {
 		model = NewVPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, base, alpha, beta)
 		ok = true
 	case "npylm":
-		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		model = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, splitter)
 		ok = true
 	case "pyhsmm":
-		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize)
+		model = NewPYHSMM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, PosSize, splitter)
 		ok = true
 	}
 	if !ok {

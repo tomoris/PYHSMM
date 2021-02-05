@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
+	"strings"
 
 	"github.com/cheggaaa/pb/v3"
 )
@@ -31,11 +32,11 @@ type PYHSMM struct {
 }
 
 // NewPYHSMM returns PYHSMM instance.
-func NewPYHSMM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int) *PYHSMM {
+func NewPYHSMM(initialTheta float64, initialD float64, gammaA float64, gammaB float64, betaA float64, betaB float64, alpha float64, beta float64, maxNgram int, maxWordLength int, PosSize int, splitter string) *PYHSMM {
 
 	npylms := make([]*NPYLM, PosSize+1, PosSize+1)
 	for pos := 0; pos < PosSize+1; pos++ {
-		npylms[pos] = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength)
+		npylms[pos] = NewNPYLM(initialTheta, initialD, gammaA, gammaB, betaA, betaB, alpha, beta, maxNgram, maxWordLength, splitter)
 	}
 	posHpylm := NewHPYLM(maxNgram-1, initialTheta, initialD, gammaA, gammaB, betaA, betaB, 1.0/float64(PosSize+1))
 
@@ -102,13 +103,13 @@ func (pyhsmm *PYHSMM) TrainWordSegmentationAndPOSTagging(dataContainer *DataCont
 
 // TestWordSegmentation inferences word segmentation and their POS tags from input unsegmented texts, and returns word sequence.
 // This is used for common interface of NPYLM.
-func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]rune, threadsNum int) [][]string {
+func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]string, threadsNum int) [][]string {
 	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
 	return wordSeqs
 }
 
 // TestWordSegmentationForPython inferences word segmentation and their POS tags from input unsegmented texts, and returns data_container which contain segmented texts.
-func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]rune, threadsNum int) *DataContainer {
+func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]string, threadsNum int) *DataContainer {
 	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
 	dataContainer := new(DataContainer)
 	for _, wordSeq := range wordSeqs {
@@ -119,7 +120,7 @@ func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]rune, threadsNum i
 }
 
 // TestWordSegmentationAndPOSTagging inferences word segmentation and their POS tags from input unsegmented texts.
-func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]rune, threadsNum int) ([][]string, [][]int) {
+func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]string, threadsNum int) ([][]string, [][]int) {
 	wordSeqs := make([][]string, len(sents), len(sents))
 	posSeqs := make([][]int, len(sents), len(sents))
 	if threadsNum <= 0 {
@@ -192,7 +193,7 @@ func (pyhsmm *PYHSMM) forwardForSamplingPosOnly(goldWordSeq context) [][]float64
 	return forwardScore
 }
 
-func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []rune) [][][][]float64 {
+func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []string) [][][][]float64 {
 	// initialize eachScore
 	type eachScoreForWordAndUAndPosType [][][][]float64
 	eachScoreForWord := make(eachScoreForWordAndUAndPosType, len(sent), len(sent))
@@ -216,7 +217,7 @@ func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []rune) [][][][]float64 {
 	for t := 0; t < len(sent); t++ {
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
 			if t-k >= 0 {
-				word = string(sent[(t - k) : t+1])
+				word = strings.Join(sent[(t-k):t+1], pyhsmm.npylms[0].splitter)
 				base = pyhsmm.npylms[0].calcBase(word) // 文字レベルのスムージングは一つのVPYLMから
 			} else {
 				continue
@@ -236,7 +237,7 @@ func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []rune) [][][][]float64 {
 				}
 				for j := 0; j < pyhsmm.maxWordLength; j++ {
 					if t-k-(j+1) >= 0 {
-						u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+						u[0] = strings.Join(sent[(t-k-(j+1)):(t-k)], pyhsmm.npylms[0].splitter)
 						wordScore, _ := pyhsmm.npylms[pos].CalcProb(word, u, base)
 						score := math.Log(wordScore)
 						if math.IsNaN(score) {
@@ -288,7 +289,7 @@ func (pyhsmm *PYHSMM) calcEachScoreForPos() [][]float64 {
 	return eachScoreForPos
 }
 
-func (pyhsmm *PYHSMM) forward(sent []rune) forwardScoreForWordAndPosType {
+func (pyhsmm *PYHSMM) forward(sent []string) forwardScoreForWordAndPosType {
 
 	// initialize forwardScore
 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
@@ -479,7 +480,7 @@ func (pyhsmm *PYHSMM) backwardPosOnly(forwardScore [][]float64, sampling bool, g
 	return samplingPosReverse
 }
 
-func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndPosType, sampling bool) (context, []int) {
+func (pyhsmm *PYHSMM) backward(sent []string, forwardScore forwardScoreForWordAndPosType, sampling bool) (context, []int) {
 	t := len(sent)
 	k := 0
 	prevWord := pyhsmm.eos
@@ -507,7 +508,7 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 		for j := 0; j < pyhsmm.maxWordLength; j++ {
 			for nextPos := 0; nextPos < pyhsmm.PosSize; nextPos++ {
 				if t-k-(j+1) >= 0 {
-					u[0] = string(sent[(t - k - (j + 1)):(t - k)])
+					u[0] = strings.Join(sent[(t-k-(j+1)):(t-k)], pyhsmm.npylms[0].splitter)
 					wordScore, _ := pyhsmm.npylms[prevPos].CalcProb(prevWord, u, base)
 					uPos[0] = strconv.Itoa(nextPos)
 					posScore, _ := pyhsmm.posHpylm.CalcProb(strconv.Itoa(prevPos), uPos, pyhsmm.posHpylm.Base)
@@ -553,7 +554,7 @@ func (pyhsmm *PYHSMM) backward(sent []rune, forwardScore forwardScoreForWordAndP
 		if nextPos >= pyhsmm.PosSize {
 			panic("sampling error in PYHSMM")
 		}
-		samplingWord = string(sent[(t - k - (j + 1)):(t - k)])
+		samplingWord = strings.Join(sent[(t-k-(j+1)):(t-k)], pyhsmm.npylms[0].splitter)
 		samplingWordSeq = append(samplingWordSeq, samplingWord)
 		samplingPosSeq = append(samplingPosSeq, nextPos)
 		prevWord = samplingWord
@@ -638,7 +639,7 @@ func (pyhsmm *PYHSMM) Initialize(dataContainer *DataContainer) {
 				end = len(sent)
 			}
 			pos := rand.Intn(pyhsmm.PosSize)
-			samplingWordSeqs[i] = append(samplingWordSeqs[i], string(sent[start:end]))
+			samplingWordSeqs[i] = append(samplingWordSeqs[i], strings.Join(sent[start:end], pyhsmm.npylms[0].splitter))
 			samplingPosSeqs[i] = append(samplingPosSeqs[i], pos)
 			start = end
 			if start == len(sent) {
@@ -660,7 +661,8 @@ func (pyhsmm *PYHSMM) InitializeFromAnnotatedData(dataContainer *DataContainer) 
 		adjustedSamplingPosSeq := make([]int, 0, len(sents[i]))
 		for j := 0; j < len(samplingWordSeqs[i]); j++ {
 			word := samplingWordSeqs[i][j]
-			wordLen := len([]rune(word))
+			sliceWord := strings.Split(word, pyhsmm.npylms[0].splitter)
+			wordLen := len(sliceWord)
 			if wordLen < pyhsmm.maxWordLength {
 				adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, word)
 				adjustedSamplingPosSeq = append(adjustedSamplingPosSeq, samplingPosSeqs[i][j])
@@ -671,7 +673,7 @@ func (pyhsmm *PYHSMM) InitializeFromAnnotatedData(dataContainer *DataContainer) 
 					if end > wordLen {
 						end = wordLen
 					}
-					adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, string([]rune(word)[start:end]))
+					adjustedSamplingWordSeq = append(adjustedSamplingWordSeq, strings.Join(sliceWord[start:end], pyhsmm.npylms[0].splitter))
 					adjustedSamplingPosSeq = append(adjustedSamplingPosSeq, samplingPosSeqs[i][j])
 					start = end
 					if start == wordLen {
@@ -918,6 +920,9 @@ func (pyStrcut *EachScoreForPython) GetScore(i, t, k, z, j, r int) float64 {
 
 // GetEachScore returns forward score for python bindings.
 func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreForPython {
+	if pyhsmm.npylms[0].splitter != "" {
+		panic("pyhsmm.npylms[0].splitter is not \"\"")
+	}
 	eachScore := &EachScoreForPython{eachScoreForWord: make([][][][][]float64, len(sents), len(sents)), eachScoreForPos: pyhsmm.calcEachScoreForPos()}
 	ch := make(chan int, threadsNum)
 	wg := sync.WaitGroup{}
@@ -925,8 +930,8 @@ func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreFor
 		ch <- 1
 		wg.Add(1)
 		go func(i int) {
-			sentRune := []rune(sents[i])
-			eachScoreForWord := pyhsmm.calcEachScoreForWord(sentRune)
+			sentSlice := strings.Split(sents[i], pyhsmm.npylms[0].splitter)
+			eachScoreForWord := pyhsmm.calcEachScoreForWord(sentSlice)
 			eachScore.eachScoreForWord[i] = eachScoreForWord
 			<-ch
 			wg.Done()
@@ -938,7 +943,7 @@ func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreFor
 }
 
 // TrainWithDiscScore trains parameter with forward score, which includes discriminator score, for python bindings.
-func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []rune, logForwardScoreList []float64, dataContainer *DataContainer, index int, samping bool) {
+func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []string, logForwardScoreList []float64, dataContainer *DataContainer, index int, samping bool) {
 	// load forwardScore
 	i := 0
 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))

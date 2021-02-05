@@ -49,6 +49,7 @@ type nPYLMJSON struct {
 	Length2prob []float64
 
 	Word2sampledDepthMemory map[string][][]int
+	Splitter string
 }
 
 type pYHSMMJSON struct {
