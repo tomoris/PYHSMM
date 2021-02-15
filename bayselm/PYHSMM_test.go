@@ -27,9 +27,9 @@ func TestPYHSMM(t *testing.T) {
 	batch = 128
 	threads = 1
 	posSize = 1
-	pyhsmm := NewPYHSMM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, posSize)
+	pyhsmm := NewPYHSMM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, posSize, "")
 
-	dataContainerForTrain := NewDataContainer("../data/alice.raw")
+	dataContainerForTrain := NewDataContainer("../data/alice.raw", "", 128)
 	pyhsmm.Initialize(dataContainerForTrain)
 	for e := 0; e < epoch; e++ {
 		pyhsmm.TrainWordSegmentation(dataContainerForTrain, threads, batch)
@@ -63,9 +63,9 @@ func TestPerformanceOfPYHSMM(t *testing.T) {
 	epoch = 5
 	posSize = 4
 	var npylm NgramLM
-	npylm = NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8)
+	npylm = NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, "")
 	var pyhsmm NgramLM
-	pyhsmm = NewPYHSMM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, posSize)
+	pyhsmm = NewPYHSMM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, posSize, "")
 
 	dataContainerForTrain := NewDataContainerFromAnnotatedData("../alice.train.txt")
 	dataContainerForTest := NewDataContainerFromAnnotatedData("../alice.test.txt")
@@ -75,7 +75,7 @@ func TestPerformanceOfPYHSMM(t *testing.T) {
 		npylm.Train(dataContainerForTrain)
 	}
 
-	npylmDummy := NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8)
+	npylmDummy := NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 8, "")
 	npylmDummy.InitializeFromAnnotatedData(dataContainerForTest)
 	perplexityOfNpylm := CalcPerplexity(npylm, dataContainerForTest)
 	perplexityOfPyhsmm := CalcPerplexity(pyhsmm, dataContainerForTest)

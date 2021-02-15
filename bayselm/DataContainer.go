@@ -39,7 +39,7 @@ type DataContainer struct {
 
 // NewDataContainer returns DataContainer instance.
 // input file is required unsegmented texts (not split space)
-func NewDataContainer(filePath string, splitter string) *DataContainer {
+func NewDataContainer(filePath string, splitter string, maxSentLen int) *DataContainer {
 	dataContainer := new(DataContainer)
 
 	f, ok := os.Open(filePath)
@@ -59,6 +59,9 @@ func NewDataContainer(filePath string, splitter string) *DataContainer {
 
 		loweredStringSent := strings.ToLower(sc.Text())
 		sent := strings.Split(loweredStringSent, splitter)
+		if len(sent) > maxSentLen {
+			sent = sent[0:maxSentLen]
+		}
 		if len(sent) > 0 {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, make(context, 0, len(sent)))
@@ -92,7 +95,7 @@ func NewDataContainerFromAnnotatedData(filePath string) *DataContainer {
 		}
 
 		sentStr := sc.Text()
-		sent := strings.Split(sentStr, "")
+		sent := strings.Split(strings.Replace(sentStr, " ", "", -1), "")
 		if len(sent) > 0 {
 			dataContainer.Sents = append(dataContainer.Sents, sent)
 			wordSeq := make(context, 0, len(sent))

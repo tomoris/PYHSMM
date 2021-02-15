@@ -6,13 +6,16 @@ import (
 	"math"
 	"math/rand"
 	"strconv"
-	"sync"
 	"strings"
+	"sync"
 
 	"github.com/cheggaaa/pb/v3"
 )
 
 type forwardScoreForWordAndPosType [][][]float64
+
+// GenerativeFeatures .
+type GenerativeFeatures [][][][][]float64
 
 // PYHSMM contains posSize-th NPYLM instances.
 type PYHSMM struct {
@@ -109,15 +112,15 @@ func (pyhsmm *PYHSMM) TestWordSegmentation(sents [][]string, threadsNum int) [][
 }
 
 // TestWordSegmentationForPython inferences word segmentation and their POS tags from input unsegmented texts, and returns data_container which contain segmented texts.
-func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]string, threadsNum int) *DataContainer {
-	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
-	dataContainer := new(DataContainer)
-	for _, wordSeq := range wordSeqs {
-		dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
-	}
-	dataContainer.Size = len(wordSeqs)
-	return dataContainer
-}
+// func (pyhsmm *PYHSMM) TestWordSegmentationForPython(sents [][]string, threadsNum int) *DataContainer {
+// 	wordSeqs, _ := pyhsmm.TestWordSegmentationAndPOSTagging(sents, threadsNum)
+// 	dataContainer := new(DataContainer)
+// 	for _, wordSeq := range wordSeqs {
+// 		dataContainer.SamplingWordSeqs = append(dataContainer.SamplingWordSeqs, wordSeq)
+// 	}
+// 	dataContainer.Size = len(wordSeqs)
+// 	return dataContainer
+// }
 
 // TestWordSegmentationAndPOSTagging inferences word segmentation and their POS tags from input unsegmented texts.
 func (pyhsmm *PYHSMM) TestWordSegmentationAndPOSTagging(sents [][]string, threadsNum int) ([][]string, [][]int) {
@@ -200,8 +203,8 @@ func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []string) [][][][]float64 {
 	for t := 0; t < len(sent); t++ {
 		eachScoreForWord[t] = make([][][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
 		for k := 0; k < pyhsmm.maxWordLength; k++ {
-			eachScoreForWord[t][k] = make([][]float64, pyhsmm.PosSize, pyhsmm.PosSize)
-			for z := 0; z < pyhsmm.PosSize; z++ {
+			eachScoreForWord[t][k] = make([][]float64, pyhsmm.PosSize+2, pyhsmm.PosSize+2)
+			for z := 0; z < pyhsmm.PosSize+2; z++ {
 				eachScoreForWord[t][k][z] = make([]float64, pyhsmm.maxWordLength+1, pyhsmm.maxWordLength+1) // + 1 is for bos
 				for j := 0; j < pyhsmm.maxWordLength+1; j++ {
 					eachScoreForWord[t][k][z][j] = math.Inf(-1)
@@ -258,9 +261,9 @@ func (pyhsmm *PYHSMM) calcEachScoreForWord(sent []string) [][][][]float64 {
 
 func (pyhsmm *PYHSMM) calcEachScoreForPos() [][]float64 {
 	type eachScoreForPosType [][]float64
-	eachScoreForPos := make(eachScoreForPosType, pyhsmm.PosSize, pyhsmm.PosSize+1)
-	for pos := 0; pos < pyhsmm.PosSize; pos++ {
-		eachScoreForPos[pos] = make([]float64, pyhsmm.PosSize+1, pyhsmm.PosSize+1)
+	eachScoreForPos := make(eachScoreForPosType, pyhsmm.PosSize+2, pyhsmm.PosSize+2)
+	for pos := 0; pos < pyhsmm.PosSize+2; pos++ {
+		eachScoreForPos[pos] = make([]float64, pyhsmm.PosSize+2, pyhsmm.PosSize+2)
 	}
 
 	uPos := make(context, pyhsmm.maxNgram-1, pyhsmm.maxNgram-1)
@@ -839,131 +842,131 @@ func (pyhsmm *PYHSMM) load(v []byte) {
 	return
 }
 
-// EachScoreForPython is for python bindings.
-type EachScoreForPython struct {
-	eachScoreForWord [][][][][]float64
-	eachScoreForPos  [][]float64
-}
+// // EachScoreForPython is for python bindings.
+// type EachScoreForPython struct {
+// 	eachScoreForWord [][][][][]float64
+// 	eachScoreForPos  [][]float64
+// }
 
-// GetWordScore returns log wordScore.
-func (pyStrcut *EachScoreForPython) GetWordScore(i, t, k, z, j int) float64 {
-	jj := j
-	if j == -1 {
-		jj = len(pyStrcut.eachScoreForWord[0][0])
-	}
+// // GetWordScore returns log wordScore.
+// func (pyStrcut *EachScoreForPython) GetWordScore(i, t, k, z, j int) float64 {
+// 	jj := j
+// 	if j == -1 {
+// 		jj = len(pyStrcut.eachScoreForWord[0][0])
+// 	}
 
-	if i >= len(pyStrcut.eachScoreForWord) {
-		errMsg := fmt.Sprintf("GetScore error i %v, max is %v", i, len(pyStrcut.eachScoreForWord))
-		panic(errMsg)
-	}
-	if t >= len(pyStrcut.eachScoreForWord[i]) {
-		errMsg := fmt.Sprintf("GetScore error t %v, max is %v", t, len(pyStrcut.eachScoreForWord[i]))
-		panic(errMsg)
-	}
-	if k >= len(pyStrcut.eachScoreForWord[i][t]) {
-		errMsg := fmt.Sprintf("GetScore error k %v, max is %v", k, len(pyStrcut.eachScoreForWord[i][t]))
-		panic(errMsg)
-	}
-	if z >= len(pyStrcut.eachScoreForWord[i][t][k]) {
-		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForWord[i][t][k]))
-		panic(errMsg)
-	}
-	if jj >= len(pyStrcut.eachScoreForWord[i][t][k][z]) {
-		errMsg := fmt.Sprintf("GetScore error jj %v, max is %v", jj, len(pyStrcut.eachScoreForWord[i][t][k][z]))
-		panic(errMsg)
-	}
+// 	if i >= len(pyStrcut.eachScoreForWord) {
+// 		errMsg := fmt.Sprintf("GetScore error i %v, max is %v", i, len(pyStrcut.eachScoreForWord))
+// 		panic(errMsg)
+// 	}
+// 	if t >= len(pyStrcut.eachScoreForWord[i]) {
+// 		errMsg := fmt.Sprintf("GetScore error t %v, max is %v", t, len(pyStrcut.eachScoreForWord[i]))
+// 		panic(errMsg)
+// 	}
+// 	if k >= len(pyStrcut.eachScoreForWord[i][t]) {
+// 		errMsg := fmt.Sprintf("GetScore error k %v, max is %v", k, len(pyStrcut.eachScoreForWord[i][t]))
+// 		panic(errMsg)
+// 	}
+// 	if z >= len(pyStrcut.eachScoreForWord[i][t][k]) {
+// 		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForWord[i][t][k]))
+// 		panic(errMsg)
+// 	}
+// 	if jj >= len(pyStrcut.eachScoreForWord[i][t][k][z]) {
+// 		errMsg := fmt.Sprintf("GetScore error jj %v, max is %v", jj, len(pyStrcut.eachScoreForWord[i][t][k][z]))
+// 		panic(errMsg)
+// 	}
 
-	wordScore := pyStrcut.eachScoreForWord[i][t][k][z][jj]
-	if math.IsNaN(wordScore) {
-		errMsg := fmt.Sprintf("calc error! score is NaN. wordScore (%v)", wordScore)
-		panic(errMsg)
-	}
-	return wordScore
-}
+// 	wordScore := pyStrcut.eachScoreForWord[i][t][k][z][jj]
+// 	if math.IsNaN(wordScore) {
+// 		errMsg := fmt.Sprintf("calc error! score is NaN. wordScore (%v)", wordScore)
+// 		panic(errMsg)
+// 	}
+// 	return wordScore
+// }
 
-// GetPosScore returns log score.
-func (pyStrcut *EachScoreForPython) GetPosScore(z, r int) float64 {
-	rr := r
-	if r == -1 {
-		rr = len(pyStrcut.eachScoreForWord[0][0][0])
-	}
+// // GetPosScore returns log score.
+// func (pyStrcut *EachScoreForPython) GetPosScore(z, r int) float64 {
+// 	rr := r
+// 	if r == -1 {
+// 		rr = len(pyStrcut.eachScoreForWord[0][0][0])
+// 	}
 
-	if z >= len(pyStrcut.eachScoreForPos) {
-		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForPos))
-		panic(errMsg)
-	}
-	if rr >= len(pyStrcut.eachScoreForPos[z]) {
-		errMsg := fmt.Sprintf("GetScore error r %v, max is %v", r, len(pyStrcut.eachScoreForPos[z]))
-		panic(errMsg)
-	}
+// 	if z >= len(pyStrcut.eachScoreForPos) {
+// 		errMsg := fmt.Sprintf("GetScore error z %v, max is %v", z, len(pyStrcut.eachScoreForPos))
+// 		panic(errMsg)
+// 	}
+// 	if rr >= len(pyStrcut.eachScoreForPos[z]) {
+// 		errMsg := fmt.Sprintf("GetScore error r %v, max is %v", r, len(pyStrcut.eachScoreForPos[z]))
+// 		panic(errMsg)
+// 	}
 
-	posScore := pyStrcut.eachScoreForPos[z][rr]
-	if math.IsNaN(posScore) {
-		errMsg := fmt.Sprintf("calc error! score is NaN. posScore (%v)", posScore)
-		panic(errMsg)
-	}
-	return posScore
-}
+// 	posScore := pyStrcut.eachScoreForPos[z][rr]
+// 	if math.IsNaN(posScore) {
+// 		errMsg := fmt.Sprintf("calc error! score is NaN. posScore (%v)", posScore)
+// 		panic(errMsg)
+// 	}
+// 	return posScore
+// }
 
-// GetScore returns log score.
-func (pyStrcut *EachScoreForPython) GetScore(i, t, k, z, j, r int) float64 {
+// // GetScore returns log score.
+// func (pyStrcut *EachScoreForPython) GetScore(i, t, k, z, j, r int) float64 {
 
-	wordScore := pyStrcut.GetWordScore(i, t, k, z, j)
-	posScore := pyStrcut.GetPosScore(z, r)
-	score := wordScore + posScore
-	if math.IsNaN(score) {
-		errMsg := fmt.Sprintf("calc error! score is NaN. score (%v)", score)
-		panic(errMsg)
-	}
-	return score
-}
+// 	wordScore := pyStrcut.GetWordScore(i, t, k, z, j)
+// 	posScore := pyStrcut.GetPosScore(z, r)
+// 	score := wordScore + posScore
+// 	if math.IsNaN(score) {
+// 		errMsg := fmt.Sprintf("calc error! score is NaN. score (%v)", score)
+// 		panic(errMsg)
+// 	}
+// 	return score
+// }
 
-// GetEachScore returns forward score for python bindings.
-func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreForPython {
-	if pyhsmm.npylms[0].splitter != "" {
-		panic("pyhsmm.npylms[0].splitter is not \"\"")
-	}
-	eachScore := &EachScoreForPython{eachScoreForWord: make([][][][][]float64, len(sents), len(sents)), eachScoreForPos: pyhsmm.calcEachScoreForPos()}
-	ch := make(chan int, threadsNum)
-	wg := sync.WaitGroup{}
-	for i := range sents {
-		ch <- 1
-		wg.Add(1)
-		go func(i int) {
-			sentSlice := strings.Split(sents[i], pyhsmm.npylms[0].splitter)
-			eachScoreForWord := pyhsmm.calcEachScoreForWord(sentSlice)
-			eachScore.eachScoreForWord[i] = eachScoreForWord
-			<-ch
-			wg.Done()
-		}(i)
-	}
-	wg.Wait()
+// // GetEachScore returns forward score for python bindings.
+// func (pyhsmm *PYHSMM) GetEachScore(sents []string, threadsNum int) *EachScoreForPython {
+// 	if pyhsmm.npylms[0].splitter != "" {
+// 		panic("pyhsmm.npylms[0].splitter is not \"\"")
+// 	}
+// 	eachScore := &EachScoreForPython{eachScoreForWord: make([][][][][]float64, len(sents), len(sents)), eachScoreForPos: pyhsmm.calcEachScoreForPos()}
+// 	ch := make(chan int, threadsNum)
+// 	wg := sync.WaitGroup{}
+// 	for i := range sents {
+// 		ch <- 1
+// 		wg.Add(1)
+// 		go func(i int) {
+// 			sentSlice := strings.Split(sents[i], pyhsmm.npylms[0].splitter)
+// 			eachScoreForWord := pyhsmm.calcEachScoreForWord(sentSlice)
+// 			eachScore.eachScoreForWord[i] = eachScoreForWord
+// 			<-ch
+// 			wg.Done()
+// 		}(i)
+// 	}
+// 	wg.Wait()
 
-	return eachScore
-}
+// 	return eachScore
+// }
 
-// TrainWithDiscScore trains parameter with forward score, which includes discriminator score, for python bindings.
-func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []string, logForwardScoreList []float64, dataContainer *DataContainer, index int, samping bool) {
-	// load forwardScore
-	i := 0
-	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
-	for t := 0; t < len(sent); t++ {
-		forwardScore[t] = make([][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
-		for k := 0; k < pyhsmm.maxWordLength; k++ {
-			forwardScore[t][k] = make([]float64, pyhsmm.PosSize, pyhsmm.PosSize)
-			for z := 0; z < pyhsmm.PosSize; z++ {
-				forwardScore[t][k][z] = logForwardScoreList[i]
-				i++
-			}
-		}
-	}
+// // TrainWithDiscScore trains parameter with forward score, which includes discriminator score, for python bindings.
+// func (pyhsmm *PYHSMM) TrainWithDiscScore(sent []string, logForwardScoreList []float64, dataContainer *DataContainer, index int, samping bool) {
+// 	// load forwardScore
+// 	i := 0
+// 	forwardScore := make(forwardScoreForWordAndPosType, len(sent), len(sent))
+// 	for t := 0; t < len(sent); t++ {
+// 		forwardScore[t] = make([][]float64, pyhsmm.maxWordLength, pyhsmm.maxWordLength)
+// 		for k := 0; k < pyhsmm.maxWordLength; k++ {
+// 			forwardScore[t][k] = make([]float64, pyhsmm.PosSize, pyhsmm.PosSize)
+// 			for z := 0; z < pyhsmm.PosSize; z++ {
+// 				forwardScore[t][k][z] = logForwardScoreList[i]
+// 				i++
+// 			}
+// 		}
+// 	}
 
-	sampledWordSeqs, sampledPosSeqs := pyhsmm.backward(sent, forwardScore, true)
-	dataContainer.SamplingWordSeqs[index] = sampledWordSeqs
-	dataContainer.SamplingPosSeqs[index] = sampledPosSeqs
-	pyhsmm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[index], dataContainer.SamplingPosSeqs[index])
-	return
-}
+// 	sampledWordSeqs, sampledPosSeqs := pyhsmm.backward(sent, forwardScore, true)
+// 	dataContainer.SamplingWordSeqs[index] = sampledWordSeqs
+// 	dataContainer.SamplingPosSeqs[index] = sampledPosSeqs
+// 	pyhsmm.addWordSeqAsCustomer(dataContainer.SamplingWordSeqs[index], dataContainer.SamplingPosSeqs[index])
+// 	return
+// }
 
 // CalcTestScore calculates score of word sequences score like perplixity.
 func (pyhsmm *PYHSMM) CalcTestScore(wordSeqs [][]string, threadsNum int) (float64, float64) {

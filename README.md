@@ -4,13 +4,11 @@ Implementation of Pitman-Yor Hidden Semi-Markov Model (PYSHMM) (Uchiumi et al., 
 This repository also contain other Bayesian n-gram based language models such as HPYLM, and NPYLM.
 
 ## Prerequisites
-- Go: 12.5  
+- Go: 13.8  
     - gonum.org/v1/gonum/stat/distuv  
     - github.com/cheggaaa/pb/v3  
     - gopkg.in/alecthomas/kingpin.v2  
-    - github.com/go-python/gopy  
-
-- Python: 3 (we test the program in python 3.6)  
+    - github.com/gin-gonic/gin  
 
 
 ## Installing
@@ -20,24 +18,11 @@ cd $GOPATH/src/github.com/tomoris/PYHSMM
 go build main.go
 ```
 
-### for Python Extention (if you want)
-```
-gopy build -vm=`which python3` -output=pylib github.com/tomoris/PYHSMM/bayselm
-```
-
 ## Usage
 Training language model.  
 `./main lm --model hpylm --maxNgram 2 --trainFile data/sample.train.word.txt --testFile data/sample.test.word.txt`  
 Training word segmentation model without labeled data.  
 `./main ws --model npylm --maxNgram 2 --trainFile data/sample.txt --threads 8 --saveFile sample.model.json`  
-
-### for Python Extention (if you want)
-```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./pylib
-export PYTHONPATH=$PYTHONPATH:./pylib
-python main.py --mode ws --model pyhsmm --trainFile data/sample.txt --posSize 5 --epoch 1 --saveFile model.json
-```
-
 
 
 ### Models

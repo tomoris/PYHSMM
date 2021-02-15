@@ -25,9 +25,9 @@ func TestNPYLM(t *testing.T) {
 	epoch = 2
 	batch = 128
 	threads = 1
-	npylm := NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 1)
+	npylm := NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 1, "")
 
-	dataContainerForTrain := NewDataContainer("../data/alice.raw")
+	dataContainerForTrain := NewDataContainer("../data/alice.raw", "", 128)
 	npylm.Initialize(dataContainerForTrain)
 	for e := 0; e < epoch; e++ {
 		npylm.TrainWordSegmentation(dataContainerForTrain, threads, batch)
@@ -64,7 +64,7 @@ func TestPerformanceOfNPYLM(t *testing.T) {
 	var hpylm NgramLM
 	hpylm = NewHPYLM(maxN-1, theta, d, 1.0, 1.0, 1.0, 1.0, base)
 	var npylm NgramLM
-	npylm = NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 30)
+	npylm = NewNPYLM(theta, d, 1.0, 1.0, 1.0, 1.0, alpha, beta, maxN, 30, "")
 
 	dataContainerForTrain := NewDataContainerFromAnnotatedData("../alice.train.txt")
 	dataContainerForTest := NewDataContainerFromAnnotatedData("../alice.test.txt")
