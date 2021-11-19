@@ -210,7 +210,8 @@ func (hpylm *HPYLM) addCustomerRecursively(word string, u context, probs []float
 	scoreArray := make([]float64, tableNum+1, tableNum+1)
 	sumScore := float64(0.0)
 	for k, tbl := range tbls {
-		score = float64(tbl) - (d * float64(rst.totalTableCountForCustomer[word]))
+		// score = float64(tbl) - (d * float64(rst.totalTableCountForCustomer[word]))
+		score = float64(tbl) - d
 		scoreArray[k] = math.Max(0.0, float64(score))
 		sumScore += scoreArray[k]
 	}
